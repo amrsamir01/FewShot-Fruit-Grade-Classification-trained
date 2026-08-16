@@ -42,8 +42,18 @@ class FruitQualityDataset:
         self.val_ratio = val_ratio
         self.seed = seed
 
+        # Episode sampling owns its own RNG instead of using the global `random`
+        # module. With the global module, every episode drawn anywhere in the
+        # process advanced the same stream, so results depended on notebook cell
+        # execution order and could not be reproduced from a seed alone.
+        self.rng = random.Random(seed)
+
         self.data = defaultdict(lambda: defaultdict(list))
         self._load_data()
+
+    def reseed(self, seed):
+        """Reset the episode sampler so a run can be repeated exactly."""
+        self.rng = random.Random(seed)
 
     # ------------------------------------------------------------------ #
     def _load_data(self):
@@ -78,7 +88,7 @@ class FruitQualityDataset:
     def get_episode(self, n_shot, n_query, fruit=None):
         """Sample a single episode with separate transforms for support / query."""
         if fruit is None:
-            fruit = random.choice(self.fruit_types)
+            fruit = self.rng.choice(self.fruit_types)
 
         support_images, support_labels = [], []
         query_images, query_labels = [], []
@@ -87,24 +97,23 @@ class FruitQualityDataset:
             all_images = self.data[fruit][quality]
             required = n_shot + n_query
 
+            # Support and query must be disjoint. The previous fallback padded a
+            # short query set with random.choices(all_images, ...), sampling WITH
+            # replacement from the full list — support images included — which is
+            # a direct support/query leak. Refuse the episode instead: at the
+            # shot counts used here (K <= 10, ~630 images per class) this branch
+            # is unreachable, and if it ever becomes reachable the run should
+            # fail loudly rather than report a leaked accuracy.
             if len(all_images) < required:
-                if len(all_images) < n_shot:
-                    raise ValueError(
-                        f"Not enough images for support: {fruit}/{quality}. "
-                        f"Need {n_shot}, have {len(all_images)}"
-                    )
-                support_paths = random.sample(all_images, n_shot)
-                remaining = [p for p in all_images if p not in support_paths]
-                if len(remaining) < n_query:
-                    query_paths = remaining + random.choices(
-                        all_images, k=n_query - len(remaining)
-                    )
-                else:
-                    query_paths = random.sample(remaining, n_query)
-            else:
-                sampled = random.sample(all_images, required)
-                support_paths = sampled[:n_shot]
-                query_paths = sampled[n_shot:]
+                raise ValueError(
+                    f"Not enough images for a disjoint episode: {fruit}/{quality}. "
+                    f"Need {required} ({n_shot} support + {n_query} query), "
+                    f"have {len(all_images)}"
+                )
+
+            sampled = self.rng.sample(all_images, required)
+            support_paths = sampled[:n_shot]
+            query_paths = sampled[n_shot:]
 
             for path in support_paths:
                 img = Image.open(path).convert("RGB")
@@ -141,7 +150,7 @@ class EpisodicDataLoader:
 
     def __iter__(self):
         for _ in range(self.n_episodes):
-            fruit = random.choice(self.fruits)
+            fruit = self.dataset.rng.choice(self.fruits)
             yield self.dataset.get_episode(self.n_shot, self.n_query, fruit=fruit)
 
     def __len__(self):

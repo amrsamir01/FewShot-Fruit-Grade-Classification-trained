@@ -22,7 +22,10 @@ from itertools import combinations
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+from PIL import Image
 from scipy import stats as sp_stats
+from torch.utils.data import DataLoader, Dataset as TorchDataset
 from tqdm import tqdm
 
 from src.dataset import FruitQualityDataset, EpisodicDataLoader
@@ -32,6 +35,7 @@ from src.models import (
     MatchingNetwork,
     StandardProtoNet,
     ProtoNetWithTemp,
+    _build_backbone,
 )
 from src.losses import PrototypicalLoss
 from src.train import train_epoch, evaluate
@@ -60,11 +64,25 @@ def _ci95(accuracies):
 # ====================================================================== #
 
 def test_on_unseen_fruits(model, test_dataset, device, config, n_trials=5):
-    """Test model on unseen fruits with multiple trials for statistical significance."""
+    """
+    Test model on unseen fruits, reporting BOTH interval types explicitly.
+
+    Two different quantities were previously both written as "+/-":
+
+      ci_95_trial   – t-interval over `n_trials` trial means (n = 5).
+                      Narrow, because averaging 600 episodes first removes
+                      almost all of the variance.
+      ci_95_episode – t-interval over the pooled per-episode accuracies
+                      (n = n_trials * N_EPISODES_TEST). This is the quantity
+                      every baseline and ablation table reports, and it is the
+                      one the thesis must quote so the numbers are comparable.
+
+    Both are returned with an explicit `n` so a reader can tell them apart.
+    """
     print("Testing on unseen fruits...")
-    all_results = {"overall": {"accuracies": []}, "per_fruit": {}}
+    all_results = {"overall": {"accuracies": [], "episode_accs": []}, "per_fruit": {}}
     for fruit in config.TEST_FRUITS:
-        all_results["per_fruit"][fruit] = {"accuracies": []}
+        all_results["per_fruit"][fruit] = {"accuracies": [], "episode_accs": []}
 
     for trial in range(n_trials):
         test_loader = EpisodicDataLoader(
@@ -75,23 +93,35 @@ def test_on_unseen_fruits(model, test_dataset, device, config, n_trials=5):
             model, test_loader, device, f"Trial {trial+1}/{n_trials}", return_all=True,
         )
         all_results["overall"]["accuracies"].append(mean_acc)
+        all_results["overall"]["episode_accs"].extend(list(all_accs))
         for fruit in config.TEST_FRUITS:
             if fruit in per_fruit_acc:
                 all_results["per_fruit"][fruit]["accuracies"].append(per_fruit_acc[fruit])
+            if fruit in fruit_accs:
+                all_results["per_fruit"][fruit]["episode_accs"].extend(list(fruit_accs[fruit]))
 
-    overall_accs = all_results["overall"]["accuracies"]
-    all_results["overall"]["mean"] = np.mean(overall_accs)
-    all_results["overall"]["std"] = np.std(overall_accs, ddof=1)
-    all_results["overall"]["ci_95"] = _ci95(overall_accs)
+    def _summarise(block):
+        trial_accs = block["accuracies"]
+        episode_accs = block["episode_accs"]
+        block["mean"] = float(np.mean(trial_accs))
+        block["std"] = float(np.std(trial_accs, ddof=1)) if len(trial_accs) > 1 else 0.0
+        block["ci_95_trial"] = float(_ci95(trial_accs))
+        block["n_trials"] = len(trial_accs)
+        block["ci_95_episode"] = float(_ci95(episode_accs)) if episode_accs else 0.0
+        block["n_episodes"] = len(episode_accs)
+        # Back-compat alias. Points at the EPISODE-level interval so that any
+        # caller still reading `ci_95` gets the quantity comparable with the
+        # baseline tables, not the artificially narrow trial-level one.
+        block["ci_95"] = block["ci_95_episode"]
 
+    _summarise(all_results["overall"])
     for fruit in config.TEST_FRUITS:
-        accs = all_results["per_fruit"][fruit]["accuracies"]
-        all_results["per_fruit"][fruit]["mean"] = np.mean(accs)
-        all_results["per_fruit"][fruit]["std"] = np.std(accs, ddof=1)
-        all_results["per_fruit"][fruit]["ci_95"] = _ci95(accs)
+        _summarise(all_results["per_fruit"][fruit])
 
-    print(f"\nOverall: {all_results['overall']['mean']*100:.1f}% "
-          f"+/- {all_results['overall']['ci_95']*100:.1f}%")
+    o = all_results["overall"]
+    print(f"\nOverall: {o['mean']*100:.1f}%"
+          f"  +/- {o['ci_95_episode']*100:.1f}% (episode-level, n={o['n_episodes']})"
+          f"  +/- {o['ci_95_trial']*100:.1f}% (trial-level, n={o['n_trials']})")
     return all_results
 
 
@@ -266,6 +296,157 @@ def run_all_fsl_baselines(our_model, train_dataset, val_dataset, test_dataset,
         marker = " ***" if "Ours" in name else ""
         print(f"  {name:<30} {data['mean']*100:>9.1f}% {data['ci_95']*100:>9.1f}%{marker}")
     print(f"{'='*65}")
+    return results
+
+
+# ====================================================================== #
+#  Transfer controls: does episodic training buy anything?
+# ====================================================================== #
+
+class _FlatImageDataset(TorchDataset):
+    """Flat (image, quality_label) view over a FruitQualityDataset's file lists."""
+
+    def __init__(self, fruit_dataset, transform):
+        self.transform = transform
+        self.samples = []
+        for fruit in fruit_dataset.fruit_types:
+            for class_idx, quality in enumerate(fruit_dataset.classes):
+                for path in fruit_dataset.data[fruit][quality]:
+                    self.samples.append((path, class_idx))
+
+    def __len__(self):
+        return len(self.samples)
+
+    def __getitem__(self, idx):
+        path, label = self.samples[idx]
+        img = Image.open(path).convert("RGB")
+        return self.transform(img), label
+
+
+class _SupervisedBackbone(nn.Module):
+    """ResNet-18 + linear fresh/rotten head. Trained non-episodically."""
+
+    def __init__(self, backbone="resnet18", pretrained=True, n_classes=2):
+        super().__init__()
+        self.encoder, in_features = _build_backbone(backbone, pretrained)
+        self.classifier = nn.Linear(in_features, n_classes)
+
+    def features(self, x):
+        return F.normalize(self.encoder(x), p=2, dim=1)
+
+    def forward(self, x):
+        return self.classifier(self.encoder(x))
+
+
+def transfer_controls(train_dataset, test_dataset, transforms_dict, config, device,
+                      epochs=15, batch_size=32, lr=1e-4):
+    """
+    The two controls the thesis most needs, and currently lacks.
+
+    Both start from ONE conventionally trained model: ResNet-18 with a linear
+    fresh/rotten head, trained on the seen species with ordinary mini-batches
+    and no episodes at all.
+
+      "Fine-tuned + Nearest Centroid" — discard the head, embed the support set,
+          classify queries by nearest class centroid. This is the Baseline++ /
+          SimpleShot control (Chen et al. 2019; Tian et al. 2020; Wang et al.
+          2019). The cross-domain few-shot literature repeatedly finds it matches
+          or beats meta-learning under domain shift. If it wins here, that is a
+          real finding and should be reported as one.
+
+      "Supervised transfer (zero-shot)" — apply the trained binary classifier
+          directly to unseen species, using no support set whatsoever. This is
+          the control that decides whether the few-shot framing is *necessary*.
+          If a plain classifier transfers across the species boundary on its own,
+          then episodes buy nothing and the thesis must say so.
+
+    Both are evaluated on the same episode stream as every other baseline, so
+    their per-episode accuracies are paired and can go into the significance
+    tests unchanged.
+    """
+    print(f"\n{'='*60}")
+    print("  Transfer controls (non-episodic supervised training)")
+    print(f"{'='*60}")
+
+    flat_train = _FlatImageDataset(train_dataset, transforms_dict["train"])
+    loader = DataLoader(flat_train, batch_size=batch_size, shuffle=True,
+                        num_workers=0, drop_last=True)
+    print(f"  {len(flat_train)} training images from {train_dataset.fruit_types}")
+
+    model = _SupervisedBackbone(config.BACKBONE, config.PRETRAINED).to(device)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr,
+                                  weight_decay=config.WEIGHT_DECAY)
+    loss_fn = nn.CrossEntropyLoss(label_smoothing=config.LABEL_SMOOTHING)
+
+    for epoch in range(1, epochs + 1):
+        model.train()
+        correct = total = 0
+        running = 0.0
+        for imgs, labels in tqdm(loader, desc=f"Supervised epoch {epoch}/{epochs}",
+                                 leave=False, mininterval=30):
+            imgs, labels = imgs.to(device), labels.to(device)
+            logits = model(imgs)
+            loss = loss_fn(logits, labels)
+            optimizer.zero_grad()
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), config.GRADIENT_CLIP)
+            optimizer.step()
+            running += loss.item() * labels.size(0)
+            correct += (logits.argmax(1) == labels).sum().item()
+            total += labels.size(0)
+        if epoch % 5 == 0 or epoch == 1:
+            print(f"  Epoch {epoch:3d} | loss {running/total:.4f} | "
+                  f"train acc {correct/total:.3f}")
+
+    # ---- evaluate both controls on a shared episode stream ---------------- #
+    model.eval()
+    ncc_accs, zero_accs = [], []
+    ncc_fruit, zero_fruit = defaultdict(list), defaultdict(list)
+
+    for _ in tqdm(range(config.N_EPISODES_TEST), desc="Transfer controls",
+                  leave=False, mininterval=30, miniters=50):
+        s_imgs, s_lbls, q_imgs, q_lbls, fruit = test_dataset.get_episode(
+            config.N_SHOT, config.N_QUERY)
+        s_imgs, q_imgs = s_imgs.to(device), q_imgs.to(device)
+        s_lbls_d, q_lbls_d = s_lbls.to(device), q_lbls.to(device)
+
+        with torch.no_grad():
+            s_feat = model.features(s_imgs)
+            q_feat = model.features(q_imgs)
+            centroids = torch.stack([
+                s_feat[s_lbls_d == c].mean(0) for c in range(config.N_CLASSES)
+            ])
+            ncc_pred = torch.cdist(q_feat, centroids).argmin(1)
+            zero_pred = model(q_imgs).argmax(1)
+
+        ncc_acc = (ncc_pred == q_lbls_d).float().mean().item()
+        zero_acc = (zero_pred == q_lbls_d).float().mean().item()
+        ncc_accs.append(ncc_acc)
+        zero_accs.append(zero_acc)
+        ncc_fruit[fruit].append(ncc_acc)
+        zero_fruit[fruit].append(zero_acc)
+
+    def _pack(accs, per_fruit):
+        return {
+            "mean": float(np.mean(accs)),
+            "std": float(np.std(accs, ddof=1)),
+            "ci_95": float(_ci95(accs)),
+            "episode_accs": accs,
+            "per_fruit": {f: float(np.mean(a)) for f, a in per_fruit.items()},
+        }
+
+    results = {
+        "Fine-tuned + Nearest Centroid": _pack(ncc_accs, ncc_fruit),
+        "Supervised transfer (zero-shot)": _pack(zero_accs, zero_fruit),
+    }
+
+    print(f"\n  {'Control':<34} {'Accuracy':>10} {'95% CI':>10}")
+    print(f"  {'-'*56}")
+    for name, data in results.items():
+        print(f"  {name:<34} {data['mean']*100:>9.1f}% {data['ci_95']*100:>9.1f}%")
+    print("\n  Read these against the proposed method. If either is competitive,")
+    print("  the honest conclusion is that episodic training is not what carries")
+    print("  cross-species transfer -- report that rather than omitting them.")
     return results
 
 
@@ -625,8 +806,9 @@ def statistical_significance_tests(baseline_results):
     print(f"{'='*75}")
     print(f"  STATISTICAL SIGNIFICANCE TESTS  (n = {n} episodes)")
     print(f"{'='*75}")
-    print(f"  {'Baseline':<30} {'t-stat':>8} {'p (t)':>10} {'W-stat':>8} {'p (W)':>10} {'Sig?':>6}")
-    print(f"  {'-'*72}")
+    print(f"  {'Baseline':<30} {'delta':>8} {'t-stat':>8} {'p (t)':>10} "
+          f"{'W-stat':>8} {'p (W)':>10} {'Outcome':>12}")
+    print(f"  {'-'*90}")
 
     sig_table = []
     min_len = n
@@ -644,21 +826,34 @@ def statistical_significance_tests(baseline_results):
 
         t_stat, t_p = sp_stats.ttest_rel(a, b)
 
+        # Two-sided. The previous alternative="greater" could only ever answer
+        # "is ours better?", so every baseline that BEAT ours returned p = 1.00
+        # and printed "No" — which reads as "no significant difference" when the
+        # truth is "significantly worse". Direction is now reported explicitly
+        # via `outcome` rather than inferred from an untestable one-sided p.
         try:
-            w_stat, w_p = sp_stats.wilcoxon(a, b, alternative="greater")
+            w_stat, w_p = sp_stats.wilcoxon(a, b, alternative="two-sided")
         except ValueError:
             w_stat, w_p = float("nan"), float("nan")
 
-        sig = "Yes" if t_p < 0.05 and w_p < 0.05 else "No"
         delta = (np.mean(a) - np.mean(b)) * 100
+        significant = t_p < 0.05 and w_p < 0.05
+        if not significant:
+            outcome = "ns"
+        elif delta > 0:
+            outcome = "ours better"
+        else:
+            outcome = "ours WORSE"
 
-        print(f"  {name:<30} {t_stat:>8.2f} {t_p:>10.2e} {w_stat:>8.0f} {w_p:>10.2e} {sig:>6}")
+        print(f"  {name:<30} {delta:>+8.2f} {t_stat:>8.2f} {t_p:>10.2e} "
+              f"{w_stat:>8.0f} {w_p:>10.2e} {outcome:>12}")
 
         sig_table.append({
             "baseline": name, "delta_acc": delta,
             "t_stat": t_stat, "t_p": t_p,
             "w_stat": w_stat, "w_p": w_p,
-            "significant": sig,
+            "significant": bool(significant),
+            "outcome": outcome,
         })
 
     print(f"{'='*75}")
@@ -945,7 +1140,9 @@ def generate_thesis_summary(all_results, dataset_stats, config):
     figures = [
         ("training_curves.png", "Training and validation accuracy/loss curves"),
         ("ablation_nshot.png", "N-shot ablation study results"),
-        ("baseline_comparison.png", "Comparison with supervised baselines"),
+        # baseline_comparison.png was listed here but no function in the project
+        # ever wrote it, so this check reported [Missing] on every run by design.
+        # The baseline comparison is a table (generate_latex_tables), not a figure.
         ("embedding_tsne.png", "t-SNE visualization of learned embeddings"),
         ("confusion_matrices.png", "Confusion matrices for unseen fruits"),
     ]

@@ -99,7 +99,21 @@ def visualize_embeddings(model, test_dataset, eval_transform, device, config,
     labels = np.array(labels_list)
     fruits = np.array(fruits_list)
 
-    tsne = TSNE(n_components=2, perplexity=30, random_state=42, max_iter=1000)
+    # scikit-learn renamed TSNE's iteration cap from `n_iter` to `max_iter` in
+    # 1.5. Passing the wrong one is a hard TypeError, so the same code crashes on
+    # one machine and works on another -- exactly the kind of environment drift
+    # that makes a result unreproducible. Pick whichever the installed version
+    # accepts rather than pinning a version here.
+    import inspect
+    tsne_params = inspect.signature(TSNE.__init__).parameters
+    iter_kwarg = "max_iter" if "max_iter" in tsne_params else "n_iter"
+
+    # perplexity must be < n_samples; sklearn raises otherwise. This matters for
+    # small or partial datasets, where the default 30 is not always satisfiable.
+    perplexity = min(30, max(5, len(embeddings) - 1))
+
+    tsne = TSNE(n_components=2, perplexity=perplexity, random_state=42,
+                **{iter_kwarg: 1000})
     emb2d = tsne.fit_transform(embeddings)
 
     fig, axes = plt.subplots(1, 2, figsize=(16, 7))
@@ -140,7 +154,7 @@ def plot_confusion_matrices(model, test_dataset, device, config):
     class_names = [c.capitalize() for c in config.CLASSES]
     fig, axes = plt.subplots(1, len(config.TEST_FRUITS) + 1,
                               figsize=(6 * (len(config.TEST_FRUITS) + 1), 5))
-    all_preds, all_labels = [], []
+    all_preds, all_labels, all_fruits = [], [], []
 
     for idx, fruit in enumerate(config.TEST_FRUITS):
         preds, labels = [], []
@@ -149,10 +163,12 @@ def plot_confusion_matrices(model, test_dataset, device, config):
             si, sl, qi = si.to(device), sl.to(device), qi.to(device)
             with torch.no_grad():
                 logits, _, _, _ = model(si, sl, qi)
-            preds.extend(logits.argmax(1).cpu().numpy())
+            batch_preds = logits.argmax(1).cpu().numpy()
+            preds.extend(batch_preds)
             labels.extend(ql.numpy())
-            all_preds.extend(logits.argmax(1).cpu().numpy())
+            all_preds.extend(batch_preds)
             all_labels.extend(ql.numpy())
+            all_fruits.extend([fruit] * len(batch_preds))
         cm = confusion_matrix(labels, preds)
         sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", ax=axes[idx],
                     xticklabels=class_names, yticklabels=class_names)
@@ -172,7 +188,26 @@ def plot_confusion_matrices(model, test_dataset, device, config):
 
     print("\nClassification Report (All Unseen Fruits):")
     print(classification_report(all_labels, all_preds, target_names=class_names))
-    return cm_all
+
+    # Return the matrix AND the report derived from the SAME prediction arrays.
+    # The committed Imgs/confusion_matrices.png (86.2% overall) disagreed with
+    # the classification report printed beside it (85%), because the figure and
+    # the text came from different runs. Handing both back from one call makes
+    # that divergence impossible to reintroduce.
+    return {
+        "confusion_matrix_overall": cm_all.tolist(),
+        "per_fruit_confusion": {
+            fruit: confusion_matrix(
+                [l for l, f in zip(all_labels, all_fruits) if f == fruit],
+                [p for p, f in zip(all_preds, all_fruits) if f == fruit],
+            ).tolist()
+            for fruit in config.TEST_FRUITS
+        },
+        "classification_report": classification_report(
+            all_labels, all_preds, target_names=class_names, output_dict=True
+        ),
+        "n_query_predictions": len(all_labels),
+    }
 
 
 # ====================================================================== #

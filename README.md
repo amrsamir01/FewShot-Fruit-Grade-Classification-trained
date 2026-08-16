@@ -199,8 +199,22 @@ new work should use `fsgrade/`.
 (3,800 fresh / 3,178 rotten). Verified per-species counts and manifest hash in
 [REPRODUCIBILITY.md](REPRODUCIBILITY.md).
 
-> **Open issue:** the exact Kaggle owner/slug and license still need to be
-> identified — the dataset is not yet citable.
+Bijoy, Tasnim, Awsaf & Hasan, *FruitVision: A benchmark dataset for fresh,
+rotten, and formalin-mixed fruit detection*, **Data in Brief** 61 (2025) 111752,
+[doi:10.1016/j.dib.2025.111752](https://doi.org/10.1016/j.dib.2025.111752),
+mirror [Mendeley xkbjx8959c](https://data.mendeley.com/datasets/xkbjx8959c/2).
+Licensed **CC BY-NC-ND 4.0**.
+
+The published collection holds 10,154 original images in 15 categories
+(5 species × {fresh, rotten, formalin-mixed}), plus an augmented expansion to
+81,000+. This project uses the **6,978-image fresh/rotten subset of the
+non-augmented originals**. Both choices are deliberate: the augmented release
+would place augmented copies of one source photograph in both support and query
+sets, and the formalin-mixed class is outside the binary quality task.
+
+> **Licence note.** CC BY-NC-ND 4.0 carries a NonCommercial term. Research use
+> and attribution are fine; commercial deployment of the Industry 4.0 scenario
+> the thesis motivates would require separate licensing of the data.
 
 **FruitNet** (second dataset, for E8): Meshram & Patil, *Data in Brief* 40 (2021)
 107686, [doi:10.1016/j.dib.2021.107686](https://doi.org/10.1016/j.dib.2021.107686),
@@ -217,10 +231,64 @@ provenance question resolves. Config: `configs/data/fruitnet.yaml`.
 
 ## Status
 
-The framework is implemented and verified end to end (192 tests passing, smoke
-run green on the real dataset). **The thesis experiments have not been run
-yet**, and no result numbers are claimed here. Pre-refactor numbers are
-superseded and not comparable — see [REPRODUCIBILITY.md §7](REPRODUCIBILITY.md).
+This repository contains **two pipelines**. They are separate, and only one has
+produced results. Read this section before reading any number anywhere else.
+
+### `src/` — the thesis pipeline (authoritative)
+
+Every number the thesis reports comes from `src/`, driven by
+[`scripts/reproduce_thesis.py`](scripts/reproduce_thesis.py). That script is the
+sole producer of results: one invocation regenerates every metric, figure and
+checkpoint into a timestamped `results/run_<ts>_seed<N>/` directory containing
+`metrics.json`, `env.json`, `summary.csv` and `figures/`.
+
+```bash
+export FRUITVISION_ROOT=/path/to/FruitVision
+python scripts/reproduce_thesis.py --verify-data          # check the image tree
+python scripts/reproduce_thesis.py --seed 42 --smoke      # prove the wiring
+for s in 42 1337 2024; do python scripts/reproduce_thesis.py --seed $s; done
+python scripts/reproduce_thesis.py --aggregate            # seed-level spread
+```
+
+### Variant campaign
+
+Four configuration choices are exposed because each was found to be
+questionable, and each is reported as an ablation rather than silently changed.
+Run the baseline first, then one variant at a time.
+
+| Flag | Default | Why it exists |
+|---|---|---|
+| `--freeze-bn-stats` | off | Episodes are 32–40 images. BatchNorm estimated from that is far worse than ImageNet running statistics, and it couples every embedding to its episode. Measured coupling drops from `1.2e-01` to `6.7e-08`. **Most likely single accuracy win.** |
+| `--val-protocol loso` | `seen_holdout` | Model selection currently maximises *seen*-species accuracy (~0.94) while the thesis is about *unseen*-species accuracy (~0.85). LOSO validates on a training species held out entirely, so selection tracks the objective. |
+| `--norm-layer layernorm` | `batchnorm` | Batch-size independent; fixes the degenerate 1-shot case where the support batch is 2 images. |
+| `--freeze-mode legacy_substring` | `stem_layer1` | Reproduces the over-broad freezing the committed checkpoint was trained with (40.7% of the backbone). |
+
+```bash
+# baseline, then the two changes most likely to matter
+python scripts/reproduce_thesis.py --seed 42
+python scripts/reproduce_thesis.py --seed 42 --freeze-bn-stats
+python scripts/reproduce_thesis.py --seed 42 --val-protocol loso --freeze-bn-stats
+
+# aggregate each variant separately -- never mix them
+python scripts/reproduce_thesis.py --aggregate --aggregate-variant bnfrozen
+```
+
+> **Choose the configuration on validation, not on test.** Mango and orange are
+> the held-out species; picking whichever variant scores best on them converts
+> the thesis's headline into a tuned number and destroys the claim. Decide using
+> the LOSO validation accuracy, fix the configuration, then report unseen-species
+> accuracy once. Report the other variants as an ablation table.
+
+[RESULTS.md](RESULTS.md) records the current numbers and flags which are pending
+regeneration. See [REVIEW_FINDINGS.md](REVIEW_FINDINGS.md) for the open defects
+and [NOVELTY_ASSESSMENT.md](NOVELTY_ASSESSMENT.md) for the literature position.
+
+### `fsgrade/` — engineering deliverable (no results)
+
+Implemented and verified end to end (192 tests passing, smoke run green), and it
+provides the demo. **Its experiment ladder has never been run, and no result
+number in the thesis comes from it.** It is presented as a software contribution
+and as future work, not as a source of evidence.
 
 > **Blocking prerequisite.** The recorded run environment has `timm: null` and
 > `open_clip: null`, so the frozen-foundation arms — `sap`, `clip_*`, `dinov2_*`,
