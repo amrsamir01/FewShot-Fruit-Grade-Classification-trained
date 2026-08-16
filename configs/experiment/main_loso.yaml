@@ -1,0 +1,8 @@
+# Primary protocol: leave-one-species-out over all 5 species.
+defaults: [../base]
+experiment: main_loso
+protocol:
+  name: leave_one_species_out
+methods: core
+stats:
+  reference_method: ours

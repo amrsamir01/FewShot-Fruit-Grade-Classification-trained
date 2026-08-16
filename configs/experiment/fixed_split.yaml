@@ -1,0 +1,8 @@
+# The original Apple/Banana/Grape -> Mango/Orange split, kept as a case study
+# for direct comparison with the pre-refactor figures.
+defaults: [../base]
+experiment: fixed_split
+protocol:
+  name: fixed
+  fixed: {train: [apple, banana, grape], test: [mango, orange]}
+methods: core

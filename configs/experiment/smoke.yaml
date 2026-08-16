@@ -1,0 +1,18 @@
+# Tiny end-to-end run: exercises every code path in minutes on CPU.
+defaults: [../base]
+experiment: smoke
+device: cpu
+protocol:
+  name: fixed
+  episodes:
+    n_episodes: {train: 4, val: 4, test: 8}
+    n_shot_max: 5
+    shots_to_evaluate: [1, 5]
+train:
+  epochs: 1
+  supervised_epochs: 1
+  warmup_epochs: 0
+  batch_size: 8
+methods: [chance, nc_pixel, zeroshot_supervised, ncc_supervised, protonet, ours]
+eval:
+  bootstrap_n: 200

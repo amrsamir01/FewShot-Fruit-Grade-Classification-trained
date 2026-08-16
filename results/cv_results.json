@@ -1,0 +1,182 @@
+[
+  {
+    "train_fruits": [
+      "apple",
+      "banana",
+      "grape"
+    ],
+    "test_fruits": [
+      "mango",
+      "orange"
+    ],
+    "mean": 0.8527778252462546,
+    "std": 0.07985603525351635,
+    "ci_95": 0.0064026331757198705,
+    "per_fruit": {
+      "mango": 0.8061181915145886,
+      "orange": 0.9046948824969816
+    }
+  },
+  {
+    "train_fruits": [
+      "apple",
+      "banana",
+      "mango"
+    ],
+    "test_fruits": [
+      "grape",
+      "orange"
+    ],
+    "mean": 0.762500042617321,
+    "std": 0.10859574511733146,
+    "ci_95": 0.008706902593184138,
+    "per_fruit": {
+      "grape": 0.6888150992583595,
+      "orange": 0.8366778618515933
+    }
+  },
+  {
+    "train_fruits": [
+      "apple",
+      "banana",
+      "orange"
+    ],
+    "test_fruits": [
+      "grape",
+      "mango"
+    ],
+    "mean": 0.7966111574073632,
+    "std": 0.08163601306727103,
+    "ci_95": 0.006545346809901817,
+    "per_fruit": {
+      "grape": 0.7584967748596777,
+      "mango": 0.8362812290386278
+    }
+  },
+  {
+    "train_fruits": [
+      "apple",
+      "grape",
+      "mango"
+    ],
+    "test_fruits": [
+      "banana",
+      "orange"
+    ],
+    "mean": 0.8724444913864136,
+    "std": 0.0755118936078209,
+    "ci_95": 0.006054332069454627,
+    "per_fruit": {
+      "orange": 0.9265074392227589,
+      "banana": 0.8208469548520514
+    }
+  },
+  {
+    "train_fruits": [
+      "apple",
+      "grape",
+      "orange"
+    ],
+    "test_fruits": [
+      "banana",
+      "mango"
+    ],
+    "mean": 0.7568333772073189,
+    "std": 0.093260025693411,
+    "ci_95": 0.007477327575523827,
+    "per_fruit": {
+      "banana": 0.7922222691277663,
+      "mango": 0.7214444852868716
+    }
+  },
+  {
+    "train_fruits": [
+      "apple",
+      "mango",
+      "orange"
+    ],
+    "test_fruits": [
+      "banana",
+      "grape"
+    ],
+    "mean": 0.8260000440478324,
+    "std": 0.10478232921583061,
+    "ci_95": 0.008401153590165711,
+    "per_fruit": {
+      "grape": 0.7446994951513947,
+      "banana": 0.910056543754319
+    }
+  },
+  {
+    "train_fruits": [
+      "banana",
+      "grape",
+      "mango"
+    ],
+    "test_fruits": [
+      "apple",
+      "orange"
+    ],
+    "mean": 0.7787778186053038,
+    "std": 0.15410535032227235,
+    "ci_95": 0.012355735235250945,
+    "per_fruit": {
+      "apple": 0.6507778124511242,
+      "orange": 0.9067778247594833
+    }
+  },
+  {
+    "train_fruits": [
+      "banana",
+      "grape",
+      "orange"
+    ],
+    "test_fruits": [
+      "apple",
+      "mango"
+    ],
+    "mean": 0.7954444908599059,
+    "std": 0.08188551827199707,
+    "ci_95": 0.006565351438183476,
+    "per_fruit": {
+      "apple": 0.7961496613403358,
+      "mango": 0.7947250745111845
+    }
+  },
+  {
+    "train_fruits": [
+      "banana",
+      "mango",
+      "orange"
+    ],
+    "test_fruits": [
+      "apple",
+      "grape"
+    ],
+    "mean": 0.7428333752850691,
+    "std": 0.09599922858912283,
+    "ci_95": 0.007696949189337171,
+    "per_fruit": {
+      "grape": 0.7111483108638521,
+      "apple": 0.7743079077167765
+    }
+  },
+  {
+    "train_fruits": [
+      "grape",
+      "mango",
+      "orange"
+    ],
+    "test_fruits": [
+      "apple",
+      "banana"
+    ],
+    "mean": 0.8061111573378245,
+    "std": 0.09578226398811646,
+    "ci_95": 0.007679553575493455,
+    "per_fruit": {
+      "banana": 0.867389110957875,
+      "apple": 0.7346570814559606
+    }
+  }
+]

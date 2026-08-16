@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Cross-Species Quality Grading — live few-shot adaptation</title>
+<!-- Inline favicon: a network request for /favicon.ico is the one outbound
+     call a browser makes without being told to. -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🍋</text></svg>">
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="mark" aria-hidden="true"></span>
+    <div>
+      <h1>Cross-Species Quality Grading</h1>
+      <p class="sub">Give the model a species it has never seen, then <em>K</em> labelled examples.</p>
+    </div>
+  </div>
+  <div class="status" id="status-bar" role="status" aria-live="polite"></div>
+</header>
+
+<div id="banner" class="banner" hidden></div>
+
+<main class="layout">
+
+  <!-- ---------------------------------------------------------------- -->
+  <section class="panel panel-support">
+    <div class="panel-head">
+      <h2>1 · Support set</h2>
+      <span class="k-badge" id="k-badge">K = 0</span>
+    </div>
+
+    <label class="field">
+      <span>Unseen species</span>
+      <div class="species-row">
+        <input id="species" list="species-list" autocomplete="off" spellcheck="false"
+               placeholder="mango, or type any fruit">
+        <datalist id="species-list"></datalist>
+      </div>
+      <small id="species-note">The text branch works for any name you type.</small>
+    </label>
+
+    <div class="trays" id="trays"></div>
+
+    <div class="row">
+      <button class="btn" data-action="sample-support">Sample 5 + 5 from dataset</button>
+      <button class="btn ghost" data-action="balance">Balance</button>
+      <button class="btn ghost" data-action="clear-support">Clear</button>
+    </div>
+
+    <div class="kappa" id="kappa-block">
+      <div class="kappa-head">
+        <span>κ — shot/text hand-over</span>
+        <span class="mono" id="kappa-value">5.0</span>
+      </div>
+      <input type="range" id="kappa" min="0.5" max="20" step="0.5" value="5">
+      <div class="kappa-foot">
+        <span id="kappa-source">default, not calibrated</span>
+        <span class="mono" id="alpha-readout">α = 0.00</span>
+      </div>
+      <p class="hint">α<sub>K</sub> = K / (K + κ). At K = 0 the prototype is pure text.</p>
+    </div>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section class="panel panel-plane">
+    <div class="panel-head">
+      <h2>2 · Decision plane</h2>
+      <div class="plane-meta mono" id="plane-meta"></div>
+    </div>
+
+    <div class="canvas-wrap">
+      <canvas id="plane" width="900" height="560"></canvas>
+      <div class="empty-state" id="plane-empty">
+        <p>Build a support set, add query images, then grade.</p>
+      </div>
+    </div>
+
+    <div class="legend" id="legend"></div>
+    <p class="hint plane-note">
+      A linear projection onto the plane spanned by the decision axis
+      (p<sub>rotten</sub> − p<sub>fresh</sub>) and the leading orthogonal direction.
+      The boundary is exactly <span class="mono">u = 0</span> — not a t-SNE approximation.
+    </p>
+  </section>
+
+  <!-- ---------------------------------------------------------------- -->
+  <section class="panel panel-query">
+    <div class="panel-head">
+      <h2>3 · Queries &amp; verdicts</h2>
+      <span class="pill" id="query-count">0</span>
+    </div>
+
+    <div class="arm-picker">
+      <label class="field compact">
+        <span>K-shot arm</span>
+        <select id="arm-kshot"></select>
+      </label>
+      <label class="field compact">
+        <span>Zero-shot control</span>
+        <select id="arm-zeroshot"></select>
+      </label>
+    </div>
+
+    <div class="row">
+      <button class="btn primary" data-action="predict">Grade queries</button>
+      <button class="btn ghost" data-action="sample-query">Sample 4 + 4</button>
+      <button class="btn ghost" data-action="clear-query">Clear</button>
+    </div>
+
+    <div id="verdicts" class="verdicts"></div>
+    <div id="query-strip" class="query-strip" data-drop="query"></div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <span>Amr Samir · Master's thesis 2026</span>
+  <span class="mono" id="footer-meta"></span>
+</footer>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/store.js"></script>
+<script src="/static/js/plot.js"></script>
+<script src="/static/js/main.js"></script>
+</body>
+</html>

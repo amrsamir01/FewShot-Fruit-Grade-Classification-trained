@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "arxiv": {
+      "command": "arxiv-mcp-server",
+      "args": ["--storage-path", "research/papers"]
+    },
+    "openalex": {
+      "command": "npx",
+      "args": ["-y", "openalex-mcp"]
+    },
+    "paper-search": {
+      "command": "paper-search-mcp",
+      "args": []
+    }
+  }
+}

@@ -1,0 +1,8 @@
+# Secondary robustness: all C(5,3)=10 train/test species partitions.
+# NOT comparable to LOSO - fewer training species, different test composition.
+defaults: [../base]
+experiment: cv_c53
+protocol:
+  name: species_combination
+  combination: {n_train: 3}
+methods: core

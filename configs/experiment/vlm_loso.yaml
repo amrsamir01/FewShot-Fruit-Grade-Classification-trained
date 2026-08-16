@@ -1,0 +1,8 @@
+# Full ladder including DINOv2 / CLIP / SAP. Requires timm + open_clip_torch.
+defaults: [../base]
+experiment: vlm_loso
+protocol:
+  name: leave_one_species_out
+methods: all
+stats:
+  reference_method: sap

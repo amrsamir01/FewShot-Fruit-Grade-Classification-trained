@@ -1,0 +1,13 @@
+# Interactive demo. Kept separate so the core install stays lean.
+#   pip install -r requirements-demo.txt
+fastapi>=0.110
+uvicorn[standard]>=0.27
+python-multipart>=0.0.9      # multipart uploads
+
+# Needed for SAP and the CLIP zero-shot text arm. After installing, run
+#   python -m fsgrade.demo.prefetch
+# once while online to cache the weights for offline use.
+open_clip_torch>=2.24
+
+# Optional, only for the DINOv2 arm.
+# timm>=1.0

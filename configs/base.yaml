@@ -1,0 +1,136 @@
+# =====================================================================
+#  Base configuration. Every experiment config inherits from this file.
+#
+#  Override anything from the CLI:
+#     python -m fsgrade.cli.evaluate --config configs/experiment/main_loso.yaml \
+#            --set model.freeze.stage=2 protocol.episodes.n_shot=1
+# =====================================================================
+
+schema_version: "1.0.0"
+
+seed: 42
+deterministic: true
+device: auto              # auto | cpu | cuda
+num_workers: 0            # >0 is safe: episode sampling is seed-free at load time
+amp: false
+
+paths:
+  # Resolution order: --data-root > $FRUITVISION_DATA_ROOT > configs/local.yaml
+  #                   > this value > probed candidates.
+  data_root: null
+  results_root: ./results
+  cache_root: ./.cache
+  episodes_root: ./results/_episodes
+  index_root: ./results/_index
+
+data:
+  species: [apple, banana, grape, mango, orange]
+  classes: [fresh, rotten]          # index 0 = fresh, index 1 = rotten (positive)
+  extensions: [".jpg", ".jpeg", ".png", ".bmp"]
+  image_size: 224
+  resize_size: 256
+  val_ratio: 0.15
+  split_seed: 42
+  augmentation:
+    hflip: 0.5
+    vflip: 0.3
+    rotation: 20
+    brightness: 0.2
+    contrast: 0.2
+    saturation: 0.2
+    # Lowered from the original 0.05: on a fresh/rotten task, colour IS the
+    # signal, so aggressive hue jitter destroys the discriminative cue.
+    hue: 0.02
+    erasing: 0.1
+
+protocol:
+  name: leave_one_species_out       # leave_one_species_out | species_combination | fixed
+  fixed:
+    train: [apple, banana, grape]
+    test: [mango, orange]
+  combination:
+    n_train: 3
+  episodes:
+    n_way: 2
+    n_shot: 5
+    n_shot_max: 10                  # bank stores 10; k-shot takes a nested prefix
+    shots_to_evaluate: [1, 3, 5, 10]
+    n_query_per_class: 15
+    query_prevalence: [0.5]         # add 0.25 / 0.10 to make MCC & PR-AUC informative
+    n_episodes:
+      train: 500
+      val: 200
+      test: 600
+    bank_seed: 20260803
+    per_species_balanced: true
+    disjoint_support_query: true
+
+model:
+  backbone: resnet18
+  pretrained: true
+  embedding_dim: 256
+  dropout: 0.4
+  use_batchnorm: false              # LayerNorm head avoids support/query coupling
+  transductive_forward: false       # support and query encoded in SEPARATE passes
+  freeze:
+    strategy: up_to_stage           # none | up_to_stage | all
+    stage: 1                        # -1 none; 0 stem; 1..4 resnet layers
+    freeze_bn_stats: true           # requires_grad=False alone does NOT freeze BN stats
+  temperature:
+    enabled: true
+    init: 0.5
+    learnable: true
+    clamp: [0.1, 2.0]
+
+train:
+  mode: episodic
+  epochs: 30
+  supervised_epochs: 20
+  episodes_per_epoch: 500
+  batch_size: 32
+  optimizer: adamw
+  lr_backbone: 5.0e-6
+  lr_head: 5.0e-5
+  lr_temperature: 2.5e-5
+  weight_decay: 5.0e-4
+  no_decay_on_norm_and_bias: true
+  warmup_epochs: 3
+  scheduler: cosine
+  grad_clip: 1.0
+  label_smoothing: 0.1
+  contrastive_weight: 0.1
+  supcon_temperature: 0.5
+  adversarial_weight: 0.0           # >0 enables the species-adversarial GRL head
+  adversarial_gamma: 10.0
+  amp: false
+  early_stopping:
+    monitor: val_balanced_accuracy
+    patience: 7
+    min_delta: 0.003
+    mode: max
+
+methods: core                       # all | core | [explicit, list]
+
+eval:
+  positive_class: rotten
+  ece_bins: 15
+  bootstrap_n: 10000
+  bootstrap_seed: 7
+  ci_level: 0.95
+  save_per_query: true
+  save_embeddings: false
+  feature_batch_size: 64
+  headline_metric: accuracy
+
+stats:
+  reference_method: ours
+  alpha: 0.05
+  correction: holm
+  family: main_comparison
+  metric: accuracy
+  alternative: two-sided
+
+logging:
+  level: INFO
+  file: run.log
+  progress: plain                   # plain | tqdm | none

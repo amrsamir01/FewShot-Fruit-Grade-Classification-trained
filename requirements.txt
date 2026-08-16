@@ -1,0 +1,22 @@
+# Core (pinned to lower bounds actually exercised; see env.json in any run
+# directory for the exact versions a given result was produced with).
+torch>=2.0
+torchvision>=0.15
+numpy>=1.24,<2.0
+scipy>=1.10
+scikit-learn>=1.3
+pandas>=2.0
+matplotlib>=3.7
+seaborn>=0.12
+Pillow>=9.5
+tqdm>=4.65
+PyYAML>=6.0
+
+# Testing
+pytest>=7.4
+
+# Optional - foundation-model arms (DINOv2 / CLIP / SAP).
+# Without these, those methods are skipped with a recorded reason rather than
+# crashing the sweep.
+# timm>=1.0
+# open_clip_torch>=2.24

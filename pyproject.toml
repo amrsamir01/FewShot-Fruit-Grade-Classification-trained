@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fsgrade"
+version = "1.0.0"
+description = "Cross-Species Quality Grading: a few-shot benchmark for fruit quality assessment"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "Amr Samir" }]
+
+dependencies = [
+    "torch>=2.0", "torchvision>=0.15", "numpy>=1.24,<2.0", "scipy>=1.10",
+    "scikit-learn>=1.3", "pandas>=2.0", "matplotlib>=3.7", "seaborn>=0.12",
+    "Pillow>=9.5", "tqdm>=4.65", "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+foundation = ["timm>=1.0", "open_clip_torch>=2.24"]
+demo = ["fastapi>=0.110", "uvicorn[standard]>=0.27", "python-multipart>=0.0.9", "open_clip_torch>=2.24"]
+dev = ["pytest>=7.4"]
+
+[tool.setuptools.packages.find]
+include = ["fsgrade*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::UserWarning:scipy.*"]

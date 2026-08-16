@@ -1,0 +1,61 @@
+# =====================================================================
+#  FruitNet -- the second dataset.
+#
+#  Meshram, V. A. & Patil, K. (2021). "FruitNet: Indian fruits image dataset
+#  with quality for machine learning applications." Data in Brief 40, 107686.
+#      doi:10.1016/j.dib.2021.107686
+#      Mendeley Data: doi:10.17632/b6fftwbr2v
+#      Licence: public domain
+#
+#  Why this dataset and not another: FruitVision's five species share one
+#  capture setup, so the cross-species gap it measures is narrow. FruitNet was
+#  captured indoors AND outdoors with varied backgrounds and lighting, so
+#  transferring onto it is a cross-species *and* cross-capture shift. It also
+#  carries a real DOI, which FruitVision currently does not.
+#
+#  ---------------------------------------------------------------------
+#  PREPARATION REQUIRED before this config will load anything.
+#
+#  fsgrade/data/index.py scans <data_root>/<species>/<quality>/*.ext, and
+#  data.classes is [fresh, rotten]. FruitNet ships Good/Bad/Mixed, so the tree
+#  must be restaged to:
+#
+#      <fruitnet_root>/apple/fresh/...      <- from "Good Quality_Fruits"
+#      <fruitnet_root>/apple/rotten/...     <- from "Bad Quality_Fruits"
+#      ...
+#
+#  Drop the Mixed class and RECORD THE DROP COUNT alongside the manifest hash
+#  in REPRODUCIBILITY.md. A silently discarded third class is exactly the kind
+#  of thing an examiner asks about.
+#
+#  Validate the restaged tree before anything else:
+#      python -m fsgrade.cli.check_data \
+#             --config configs/experiment/<your-experiment>.yaml \
+#             --data-root /path/to/FruitNet
+#  ---------------------------------------------------------------------
+#
+#  SCOPE LIMIT -- read this before assuming E8 works.
+#
+#  This file swaps which dataset the whole protocol runs on. It does NOT give
+#  you cross-dataset transfer, because paths.data_root is a single value: there
+#  is no way to express "train on FruitVision, test on FruitNet" today.
+#
+#  True E8 needs a code change in fsgrade/data/episodes.py (FoldSpec /
+#  EpisodeBank) to carry a per-split data root, plus a second manifest in
+#  fsgrade/data/index.py. Until then this config buys you: ingestion validation,
+#  a FruitNet-only LOSO run over 6 species, and a same-protocol comparison
+#  against the FruitVision numbers.
+# =====================================================================
+
+defaults: [../base]
+
+data:
+  # Three species overlap with FruitVision (apple, banana, orange); guava, lime
+  # and pomegranate are new. Six species means LOSO gives 6 folds here, not 5 --
+  # so the fold-level t-interval has n = 6 and is NOT comparable to the
+  # FruitVision n = 5 interval. Never put them in the same results column.
+  species: [apple, banana, guava, lime, orange, pomegranate]
+  classes: [fresh, rotten]
+
+protocol:
+  name: leave_one_species_out

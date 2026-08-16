@@ -1,0 +1,61 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Outputs
+checkpoints/
+results/
+.cache/
+
+# Per-machine dataset path (copy from configs/local.yaml.example)
+configs/local.yaml
+
+# Generated figures are committed deliberately (docs/figures/) so the thesis
+# figure is reviewable without re-running anything.
+!docs/figures/
+
+# Environment
+.env
+.venv/
+env/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Data (too large for git)
+FruitVision/
+
+# Downloaded papers from the arXiv MCP server
+research/papers/
+
+# Session working files (training run + interrupt recovery) — not part of the thesis
+/smoke_test.py
+/train_model.py
+/send_finalize.py
+/extract_results.py
+/finalize_fresh.py
+/validate_tail.py
+/inspect_kernel.py
+/inject_outputs.py
+/cells_dump.txt
+/cells_dump2.txt
+*.log
+results/kernel_results.pkl
+
+# Claude Code local settings
+.claude/
