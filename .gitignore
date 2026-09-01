@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+
+# Environments
+.venv/
+venv/
+
+# Run outputs
+# Real runs (results/run_<ts>_seed<N>) ARE tracked deliberately: metrics.json,
+# env.json and summary.csv are the citable record. Smoke runs are not.
+results/run_smoke_*/
+checkpoints/
+logs/
+*.log
+
+# Notebook scratch
+.ipynb_checkpoints/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Large regenerable binaries. The citable record for each run is its
+# metrics.json / env.json / summary.csv / figures/, all small and tracked;
+# the weights stay on the machine that produced them.
+*.pth
+*.pt
+
+# Incomplete runs (killed mid-stage) have no metrics.json and are ignored by
+# the results notebook, --aggregate and demo_app anyway.
+results/run_20260817_011355_seed42/
