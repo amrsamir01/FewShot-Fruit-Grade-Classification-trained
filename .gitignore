@@ -34,3 +34,6 @@ Thumbs.db
 # Incomplete runs (killed mid-stage) have no metrics.json and are ignored by
 # the results notebook, --aggregate and demo_app anyway.
 results/run_20260817_011355_seed42/
+
+# Pre-strip copy of the executed notebook (48 MB of tqdm redraws).
+*.bak
