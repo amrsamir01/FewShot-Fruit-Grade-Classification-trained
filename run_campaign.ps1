@@ -41,30 +41,35 @@ New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 #
 # 'kind' is 'script' (reproduce_thesis.py) or 'notebook' (nbconvert).
 
+# 'suffix' is how reproduce_thesis.py names that stage's run directory
+# (run_<timestamp>_seed<N>[_<variant>]). It lets the runner spot an interrupted
+# run of the SAME stage and hand it to --resume-from instead of starting over.
+
 $Stages = @(
     @{ id="4a"; kind="script";   desc="Seed 42, full (backbone ablation + species CV + single-species)";
-       args=@("--seed","42") }
+       args=@("--seed","42"); suffix="_seed42" }
 
     @{ id="5";  kind="notebook"; desc="Execute notebooks/main_experiment.ipynb top to bottom";
        nb="notebooks\main_experiment.ipynb" }
 
     @{ id="4b"; kind="script";   desc="Seed 1337, full";
-       args=@("--seed","1337") }
+       args=@("--seed","1337"); suffix="_seed1337" }
 
     @{ id="4c"; kind="script";   desc="Seed 2024, full";
-       args=@("--seed","2024") }
+       args=@("--seed","2024"); suffix="_seed2024" }
 
     @{ id="4d"; kind="script";   desc="Aggregate the three seeds into results/seed_aggregate.json";
        args=@("--aggregate") }
 
     @{ id="4e"; kind="script";   desc="Variant: --freeze-bn-stats";
-       args=@("--seed","42","--freeze-bn-stats","--skip-expensive") }
+       args=@("--seed","42","--freeze-bn-stats","--skip-expensive"); suffix="_seed42_bnfrozen" }
 
     @{ id="4f"; kind="script";   desc="Variant: LOSO validation protocol";
-       args=@("--seed","42","--val-protocol","loso","--skip-expensive") }
+       args=@("--seed","42","--val-protocol","loso","--skip-expensive"); suffix="_seed42_loso" }
 
     @{ id="4g"; kind="script";   desc="Variant: LOSO + frozen BN stats";
-       args=@("--seed","42","--val-protocol","loso","--freeze-bn-stats","--skip-expensive") }
+       args=@("--seed","42","--val-protocol","loso","--freeze-bn-stats","--skip-expensive");
+       suffix="_seed42_loso-bnfrozen" }
 
     @{ id="6";  kind="notebook"; desc="Render notebooks/thesis_results.ipynb from finished runs";
        nb="notebooks\thesis_results.ipynb"; optional=$true }
@@ -128,6 +133,23 @@ function Invoke-Stage($stage) {
     else {
         $exe  = $Python
         $argv = @((Join-Path $RepoRoot "scripts\reproduce_thesis.py")) + $stage.args
+
+        # An interrupted run of THIS stage leaves a directory with a
+        # partial_metrics.json and no metrics.json. Hand it back so the stages
+        # already banked (training above all) are not recomputed.
+        if ($stage.suffix) {
+            $partial = Get-ChildItem (Join-Path $RepoRoot "results") -Directory `
+                          -Filter "run_*$($stage.suffix)" -ErrorAction SilentlyContinue |
+                       Where-Object {
+                           $_.Name -notlike "*smoke*" -and
+                           (Test-Path (Join-Path $_.FullName "partial_metrics.json")) -and
+                           -not (Test-Path (Join-Path $_.FullName "metrics.json"))
+                       } | Sort-Object LastWriteTime | Select-Object -Last 1
+            if ($partial) {
+                Write-Host "[$id] resuming interrupted run $($partial.Name)"
+                $argv += @("--resume-from", $partial.FullName)
+            }
+        }
     }
 
     $started = Get-Date

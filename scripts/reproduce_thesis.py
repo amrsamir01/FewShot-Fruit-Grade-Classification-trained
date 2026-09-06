@@ -73,7 +73,7 @@ from config import Config, ensure_dirs  # noqa: E402
 from src.dataset import FruitQualityDataset, EpisodicDataLoader  # noqa: E402
 from src.losses import PrototypicalLoss  # noqa: E402
 from src.models import PrototypicalNetwork  # noqa: E402
-from src.train import train_protonet  # noqa: E402
+from src.train import train_protonet, load_checkpoint  # noqa: E402
 from src.transforms import build_transforms  # noqa: E402
 from src import experiments as exp  # noqa: E402
 from src import visualization as viz  # noqa: E402
@@ -237,6 +237,55 @@ class NumpyEncoder(json.JSONEncoder):
 
 
 # ====================================================================== #
+#  Stage-level checkpointing
+# ====================================================================== #
+#
+# A full run is 35-70 h and metrics.json is only written at the very end, so an
+# interruption at hour 60 used to cost the whole thing. After every stage the
+# metrics accumulated so far are flushed to partial_metrics.json, and
+# --resume-from <run_dir> reloads that file plus the trained checkpoint and
+# skips every stage whose key is already present.
+#
+# A resumed run is NOT bit-identical to an uninterrupted one: the episode
+# samplers are re-seeded at process start, so stages that run after a resume
+# draw a different episode sequence than they would have. The difference is
+# ordinary sampling noise rather than a change of method, but it is real, so
+# every resume is recorded in metrics["resume_events"] and the run declares
+# itself resumed. Prefer an uninterrupted run for anything headline.
+
+def save_partial(metrics: dict, run_dir: Path) -> None:
+    """
+    Flush progress so far; called after each completed stage.
+
+    Written to a temp file and renamed, so a kill during the write cannot leave
+    a truncated partial_metrics.json behind. Wall clock accumulates across
+    resumes, so a run interrupted at hour 60 and finished in two more still
+    reports 62 rather than 2.
+    """
+    if save_partial.started is not None:
+        metrics["wall_clock_seconds"] = round(
+            save_partial.prior + (time.time() - save_partial.started), 1)
+    tmp = run_dir / "partial_metrics.json.tmp"
+    tmp.write_text(json.dumps(metrics, indent=2, cls=NumpyEncoder), encoding="utf-8")
+    tmp.replace(run_dir / "partial_metrics.json")
+
+
+save_partial.started = None
+save_partial.prior = 0.0
+
+
+def load_partial(run_dir: Path) -> dict:
+    f = run_dir / "partial_metrics.json"
+    if not f.is_file():
+        return {}
+    try:
+        return json.loads(f.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        print(f"  partial_metrics.json in {run_dir.name} is unreadable; ignoring it")
+        return {}
+
+
+# ====================================================================== #
 #  Main pipeline
 # ====================================================================== #
 
@@ -273,7 +322,21 @@ def run(args) -> int:
             "bnfrozen" if args.freeze_bn_stats else "",
         ) if part
     )
-    run_dir = make_run_dir(args.seed, args.smoke, variant)
+    resumed: dict = {}
+    if args.resume_from:
+        run_dir = Path(args.resume_from).resolve()
+        if not run_dir.is_dir():
+            print(f"--resume-from: no such directory: {run_dir}")
+            return 1
+        if (run_dir / "metrics.json").is_file():
+            print(f"--resume-from: {run_dir.name} already finished "
+                  f"(metrics.json exists). Nothing to resume.")
+            return 0
+        resumed = load_partial(run_dir)
+        (run_dir / "figures").mkdir(parents=True, exist_ok=True)
+        (run_dir / "checkpoints").mkdir(parents=True, exist_ok=True)
+    else:
+        run_dir = make_run_dir(args.seed, args.smoke, variant)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Figures and checkpoints belong to THIS run, not to a shared directory.
@@ -289,6 +352,8 @@ def run(args) -> int:
     print("=" * 72)
 
     started = time.time()
+    save_partial.started = started
+    save_partial.prior = float(resumed.get("wall_clock_seconds", 0.0) or 0.0)
     all_fruits = list(config.TRAIN_FRUITS) + list(config.TEST_FRUITS)
     metrics: dict = {
         "seed": args.seed,
@@ -299,6 +364,27 @@ def run(args) -> int:
         },
         "dataset": dataset_manifest(config.DATA_ROOT, all_fruits, config.CLASSES),
     }
+
+    # Carry completed stages across; config/dataset/seed are always recomputed
+    # so a resume can never inherit a stale environment description.
+    metrics["resume_events"] = list(resumed.get("resume_events", []))
+    if resumed:
+        restored = [k for k in resumed if k not in metrics]
+        for k in restored:
+            metrics[k] = resumed[k]
+        # wall_clock_seconds is bookkeeping carried forward by save_partial,
+        # not a stage result, so it does not belong in the restored list.
+        stages = sorted(k for k in restored if k != "wall_clock_seconds")
+        metrics["resume_events"].append({
+            "at": datetime.now().isoformat(timespec="seconds"),
+            "stages_restored": stages,
+        })
+        print(f"  RESUMED from {run_dir.name}: "
+              f"{len(stages)} stage(s) already complete -> {', '.join(stages)}")
+        print("  note: stages run after a resume draw a different episode "
+              "sequence than an uninterrupted run would have.")
+    if not metrics["resume_events"]:
+        del metrics["resume_events"]
 
     tf = build_transforms(config)
 
@@ -384,8 +470,19 @@ def run(args) -> int:
         contrastive_weight=config.CONTRASTIVE_WEIGHT,
         label_smoothing=config.LABEL_SMOOTHING,
     )
-    history = train_protonet(model, train_loader, val_loader, criterion, config, device)
-    metrics["training_history"] = history
+    ckpt_path = Path(config.CHECKPOINT_DIR) / "best_model.pth"
+    if "training_history" in metrics and ckpt_path.is_file():
+        epoch, _ = load_checkpoint(model, None, str(ckpt_path), device)
+        history = metrics["training_history"]
+        print(f"  restored best_model.pth from the resumed run (epoch {epoch}); "
+              f"not retraining")
+    else:
+        if "training_history" in metrics:
+            print("  resumed metrics have a training history but "
+                  f"{ckpt_path.name} is missing; retraining")
+            metrics.pop("training_history", None)
+        history = train_protonet(model, train_loader, val_loader, criterion, config, device)
+        metrics["training_history"] = history
     metrics["validation"] = metrics_val_meta
     metrics["model"] = {
         "total_params": sum(p.numel() for p in model.parameters()),
@@ -396,65 +493,103 @@ def run(args) -> int:
         "freeze_bn_stats": args.freeze_bn_stats,
         "hue_jitter": config.HUE_JITTER,
     }
+    save_partial(metrics, run_dir)
 
     # ---------------------------------------------------------------- #
     # 3. Headline: unseen-species evaluation
     # ---------------------------------------------------------------- #
     print("\n[2/9] Cross-species evaluation on held-out species")
-    metrics["cross_species"] = exp.test_on_unseen_fruits(
-        model, test_ds, device, config, n_trials=3 if args.smoke else 5)
+    if "cross_species" in metrics:
+        print("  already complete in the resumed run; skipping")
+    else:
+        metrics["cross_species"] = exp.test_on_unseen_fruits(
+            model, test_ds, device, config, n_trials=3 if args.smoke else 5)
+        save_partial(metrics, run_dir)
 
     # ---------------------------------------------------------------- #
     # 4. Confusion matrices + classification report (same predictions)
     # ---------------------------------------------------------------- #
     print("\n[3/9] Confusion matrices and classification report")
-    metrics["confusion"] = viz.plot_confusion_matrices(model, test_ds, device, config)
+    if "confusion" in metrics and (Path(config.RESULTS_DIR) / "confusion_matrices.png").is_file():
+        print("  already complete in the resumed run; skipping")
+    else:
+        metrics["confusion"] = viz.plot_confusion_matrices(model, test_ds, device, config)
+        save_partial(metrics, run_dir)
 
     # ---------------------------------------------------------------- #
     # 5. Baselines + significance
     # ---------------------------------------------------------------- #
     print("\n[4/9] Few-shot baselines")
-    baseline_results = exp.run_all_fsl_baselines(
-        model, train_ds, val_ds, test_ds, config, device)
+    if "baselines" in metrics:
+        print("  already complete in the resumed run; skipping")
+        baseline_results = metrics["baselines"]
+    else:
+        baseline_results = exp.run_all_fsl_baselines(
+            model, train_ds, val_ds, test_ds, config, device)
 
-    # The two controls that decide whether episodic training is needed at all.
-    # Folded into the same dict so they are covered by the paired significance
-    # tests rather than sitting in a footnote.
-    if not args.skip_transfer_controls:
-        controls = exp.transfer_controls(
-            train_ds, test_ds, tf, config, device,
-            epochs=2 if args.smoke else 15)
-        metrics["transfer_controls"] = controls
-        baseline_results.update(controls)
+        # The two controls that decide whether episodic training is needed at
+        # all. Folded into the same dict so they are covered by the paired
+        # significance tests rather than sitting in a footnote.
+        if not args.skip_transfer_controls:
+            controls = exp.transfer_controls(
+                train_ds, test_ds, tf, config, device,
+                epochs=2 if args.smoke else 15)
+            metrics["transfer_controls"] = controls
+            baseline_results.update(controls)
 
-    metrics["baselines"] = baseline_results
+        metrics["baselines"] = baseline_results
+        save_partial(metrics, run_dir)
 
     print("\n[5/9] Paired significance tests (two-sided)")
-    metrics["significance"] = exp.statistical_significance_tests(baseline_results)
+    if "significance" in metrics:
+        print("  already complete in the resumed run; skipping")
+    else:
+        metrics["significance"] = exp.statistical_significance_tests(baseline_results)
+        save_partial(metrics, run_dir)
 
     # ---------------------------------------------------------------- #
     # 6. Ablations
     # ---------------------------------------------------------------- #
     print("\n[6/9] Component ablation")
-    metrics["component_ablation"] = exp.component_ablation(
-        model, train_ds, val_ds, test_ds, config, device)
+    if "component_ablation" in metrics:
+        print("  already complete in the resumed run; skipping")
+    else:
+        metrics["component_ablation"] = exp.component_ablation(
+            model, train_ds, val_ds, test_ds, config, device)
+        save_partial(metrics, run_dir)
 
     print("\n[7/9] N-shot ablation")
-    metrics["nshot_ablation"] = exp.ablation_n_shot(model, test_ds, device, config)
-    viz.plot_ablation_nshot(metrics["nshot_ablation"], config)
+    if "nshot_ablation" in metrics and (Path(config.RESULTS_DIR) / "ablation_nshot.png").is_file():
+        print("  already complete in the resumed run; skipping")
+    else:
+        metrics["nshot_ablation"] = exp.ablation_n_shot(model, test_ds, device, config)
+        viz.plot_ablation_nshot(metrics["nshot_ablation"], config)
+        save_partial(metrics, run_dir)
 
     if not args.skip_expensive:
         print("\n[8/9] Backbone ablation")
-        metrics["backbone_ablation"] = exp.backbone_ablation(
-            train_ds, val_ds, test_ds, config, device)
+        if "backbone_ablation" in metrics:
+            print("  already complete in the resumed run; skipping")
+        else:
+            metrics["backbone_ablation"] = exp.backbone_ablation(
+                train_ds, val_ds, test_ds, config, device)
+            save_partial(metrics, run_dir)
 
         print("\n[9/9] Species-split cross-validation")
-        metrics["species_cv"] = exp.species_split_cross_validation(
-            tf, config, device, epochs=2 if args.smoke else 20)
+        if "species_cv" in metrics:
+            print("  already complete in the resumed run; skipping")
+        else:
+            metrics["species_cv"] = exp.species_split_cross_validation(
+                tf, config, device, epochs=2 if args.smoke else 20)
+            save_partial(metrics, run_dir)
 
         print("\n[+] Single-species baselines")
-        metrics["single_species"] = exp.run_single_species_baselines(
-            model, test_ds, tf, config, device)
+        if "single_species" in metrics:
+            print("  already complete in the resumed run; skipping")
+        else:
+            metrics["single_species"] = exp.run_single_species_baselines(
+                model, test_ds, tf, config, device)
+            save_partial(metrics, run_dir)
     else:
         print("\n[8/9,9/9] Skipped (--skip-expensive)")
 
@@ -467,7 +602,8 @@ def run(args) -> int:
     # ---------------------------------------------------------------- #
     # 8. Persist
     # ---------------------------------------------------------------- #
-    metrics["wall_clock_seconds"] = round(time.time() - started, 1)
+    metrics["wall_clock_seconds"] = round(
+        save_partial.prior + (time.time() - started), 1)
 
     (run_dir / "metrics.json").write_text(
         json.dumps(metrics, indent=2, cls=NumpyEncoder), encoding="utf-8")
@@ -480,6 +616,10 @@ def run(args) -> int:
         writer.writerows(flatten_for_csv(metrics))
 
     write_demo_layout(run_dir, model, config, metrics)
+
+    # metrics.json is the completion marker; the partial would only confuse
+    # a later --resume-from into thinking there is work left.
+    (run_dir / "partial_metrics.json").unlink(missing_ok=True)
 
     print("\n" + "=" * 72)
     print(f"  DONE in {metrics['wall_clock_seconds']}s -> {run_dir}")
@@ -646,6 +786,13 @@ def main() -> int:
                    help="Skip the fine-tune and zero-shot transfer controls. "
                         "Not recommended: they are the thesis's most exposed "
                         "methodological omission.")
+    p.add_argument("--resume-from", default=None, metavar="RUN_DIR",
+                   help="Continue an interrupted run: reuse its directory, its "
+                        "trained checkpoint and every stage already recorded in "
+                        "partial_metrics.json. Stages that run after the resume "
+                        "draw a different episode sequence than an "
+                        "uninterrupted run would, so the run records itself as "
+                        "resumed; prefer a clean run for headline numbers.")
     p.add_argument("--verify-data", action="store_true",
                    help="Check the dataset and print its manifest hash, then exit.")
     p.add_argument("--aggregate", action="store_true",
