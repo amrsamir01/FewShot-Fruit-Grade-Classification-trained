@@ -37,3 +37,7 @@ results/run_20260817_011355_seed42/
 
 # Pre-strip copy of the executed notebook (48 MB of tqdm redraws).
 *.bak
+
+# Transient: written after each stage, deleted when the run completes and
+# writes metrics.json. Never a citable artifact.
+partial_metrics.json

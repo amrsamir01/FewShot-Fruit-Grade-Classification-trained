@@ -1,0 +1,270 @@
+metric,value
+seed,42
+smoke,False
+config.ABLATION_EPISODES,300
+config.ABLATION_SHOTS.n,4
+config.ABLATION_SHOTS.mean,4.75
+config.BACKBONE,resnet18
+config.CHECKPOINT_DIR,C:\Users\admin\Desktop\Amr Samir\FewShot-Fruit-Grade-Classification-trained\results\run_20260906_200503_seed42\checkpoints
+config.CONTRASTIVE_WEIGHT,0.1
+config.DATA_ROOT,C:\Users\admin\Desktop\Amr Samir\FruitVision
+config.DROPOUT_RATE,0.4
+config.EARLY_STOPPING_PATIENCE,7
+config.EMBEDDING_DIM,256
+config.EPOCHS,30
+config.EXPERIMENT_NAME,ProtoNet_resnet18_5shot
+config.GRADIENT_CLIP,1.0
+config.HUE_JITTER,0.02
+config.IMAGE_SIZE,224
+config.LABEL_SMOOTHING,0.1
+config.LEARNING_RATE,5e-05
+config.N_CLASSES,2
+config.N_EPISODES_TEST,600
+config.N_EPISODES_TRAIN,500
+config.N_EPISODES_VAL,200
+config.N_QUERY,15
+config.N_SHOT,5
+config.PRETRAINED,True
+config.RESIZE_SIZE,256
+config.RESULTS_DIR,C:\Users\admin\Desktop\Amr Samir\FewShot-Fruit-Grade-Classification-trained\results\run_20260906_200503_seed42\figures
+config.TEMPERATURE,0.5
+config.THESIS_FIGS_DIR,C:\Users\admin\Desktop\Amr Samir\FewShot-Fruit-Grade-Classification-trained\results\run_20260906_200503_seed42\figures
+config.VAL_SPLIT_RATIO,0.15
+config.WARMUP_EPOCHS,3
+config.WEIGHT_DECAY,0.0005
+dataset.manifest_sha256,8354959198214354683c974f8c64b0ef08c8aad92ff13d3db05dd7d058b95ebe
+dataset.counts.apple.fresh,765
+dataset.counts.apple.rotten,630
+dataset.counts.banana.fresh,749
+dataset.counts.banana.rotten,632
+dataset.counts.grape.fresh,770
+dataset.counts.grape.rotten,630
+dataset.counts.mango.fresh,763
+dataset.counts.mango.rotten,630
+dataset.counts.orange.fresh,753
+dataset.counts.orange.rotten,656
+dataset.total_images,6978
+training_history.train_loss.n,27
+training_history.train_loss.mean,0.5359888111838588
+training_history.train_acc.n,27
+training_history.train_acc.mean,0.9828864302193678
+training_history.val_acc.n,27
+training_history.val_acc.mean,0.9047654653478552
+training_history.lr.n,27
+training_history.lr.mean,2.9542570230655255e-06
+training_history.temperature.n,27
+training_history.temperature.mean,0.5321617523829142
+training_history.gap.n,27
+training_history.gap.mean,0.07812096487151253
+validation.protocol,seen_holdout
+model.total_params,11571521
+model.trainable_params,11414017
+model.learned_temperature,0.5590040683746338
+model.freeze_mode,stem_layer1
+model.norm_layer,batchnorm
+model.freeze_bn_stats,False
+model.hue_jitter,0.02
+wall_clock_seconds,254013.4
+cross_species.overall.accuracies.n,5
+cross_species.overall.accuracies.mean,0.8817667161027591
+cross_species.overall.episode_accs.n,3000
+cross_species.overall.episode_accs.mean,0.881766716102759
+cross_species.overall.mean,0.8817667161027591
+cross_species.overall.std,0.0031801368697389957
+cross_species.overall.ci_95_trial,0.003948661460515324
+cross_species.overall.n_trials,5
+cross_species.overall.ci_95_episode,0.0021093802255095872
+cross_species.overall.n_episodes,3000
+cross_species.overall.ci_95,0.0021093802255095872
+cross_species.per_fruit.mango.accuracies.n,5
+cross_species.per_fruit.mango.accuracies.mean,0.872427135884393
+cross_species.per_fruit.mango.episode_accs.n,1530
+cross_species.per_fruit.mango.episode_accs.mean,0.8724837101752462
+cross_species.per_fruit.mango.mean,0.872427135884393
+cross_species.per_fruit.mango.std,0.00552222034205085
+cross_species.per_fruit.mango.ci_95_trial,0.006856742188873016
+cross_species.per_fruit.mango.n_trials,5
+cross_species.per_fruit.mango.ci_95_episode,0.0029784432522301668
+cross_species.per_fruit.mango.n_episodes,1530
+cross_species.per_fruit.mango.ci_95,0.0029784432522301668
+cross_species.per_fruit.orange.accuracies.n,5
+cross_species.per_fruit.orange.accuracies.mean,0.8915103198872503
+cross_species.per_fruit.orange.episode_accs.n,1470
+cross_species.per_fruit.orange.episode_accs.mean,0.8914286202313949
+cross_species.per_fruit.orange.mean,0.8915103198872503
+cross_species.per_fruit.orange.std,0.005136167216697157
+cross_species.per_fruit.orange.ci_95_trial,0.006377393921727291
+cross_species.per_fruit.orange.n_trials,5
+cross_species.per_fruit.orange.ci_95_episode,0.002909196781420491
+cross_species.per_fruit.orange.n_episodes,1470
+cross_species.per_fruit.orange.ci_95,0.002909196781420491
+confusion.classification_report.Fresh.precision,0.9245697546686196
+confusion.classification_report.Fresh.recall,0.8416666666666667
+confusion.classification_report.Fresh.f1-score,0.8811725702320712
+confusion.classification_report.Fresh.support,3000.0
+confusion.classification_report.Rotten.precision,0.8546956255735699
+confusion.classification_report.Rotten.recall,0.9313333333333333
+confusion.classification_report.Rotten.f1-score,0.891370234487159
+confusion.classification_report.Rotten.support,3000.0
+confusion.classification_report.accuracy,0.8865
+confusion.classification_report.macro avg.precision,0.8896326901210947
+confusion.classification_report.macro avg.recall,0.8865000000000001
+confusion.classification_report.macro avg.f1-score,0.8862714023596151
+confusion.classification_report.macro avg.support,6000.0
+confusion.classification_report.weighted avg.precision,0.8896326901210947
+confusion.classification_report.weighted avg.recall,0.8865
+confusion.classification_report.weighted avg.f1-score,0.8862714023596151
+confusion.classification_report.weighted avg.support,6000.0
+confusion.n_query_predictions,6000
+transfer_controls.Fine-tuned + Nearest Centroid.mean,0.9378333727518717
+transfer_controls.Fine-tuned + Nearest Centroid.std,0.04630803276867909
+transfer_controls.Fine-tuned + Nearest Centroid.ci_95,0.003712848327190315
+transfer_controls.Fine-tuned + Nearest Centroid.episode_accs.n,600
+transfer_controls.Fine-tuned + Nearest Centroid.episode_accs.mean,0.9378333727518717
+transfer_controls.Fine-tuned + Nearest Centroid.per_fruit.orange,0.9206621442755608
+transfer_controls.Fine-tuned + Nearest Centroid.per_fruit.mango,0.9541125893592834
+transfer_controls.Supervised transfer (zero-shot).mean,0.8620556010802587
+transfer_controls.Supervised transfer (zero-shot).std,0.08297382927999308
+transfer_controls.Supervised transfer (zero-shot).ci_95,0.006652609165707485
+transfer_controls.Supervised transfer (zero-shot).episode_accs.n,600
+transfer_controls.Supervised transfer (zero-shot).episode_accs.mean,0.8620556010802587
+transfer_controls.Supervised transfer (zero-shot).per_fruit.orange,0.7963470783952165
+transfer_controls.Supervised transfer (zero-shot).per_fruit.mango,0.9243506940154286
+baselines.Nearest Centroid (pixels).mean,0.6896666703124841
+baselines.Nearest Centroid (pixels).std,0.09881827803763608
+baselines.Nearest Centroid (pixels).ci_95,0.00792297267604983
+baselines.Nearest Centroid (pixels).episode_accs.n,600
+baselines.Nearest Centroid (pixels).episode_accs.mean,0.6896666703124841
+baselines.Siamese Network.mean,0.8818333749721448
+baselines.Siamese Network.std,0.09280141211087371
+baselines.Siamese Network.ci_95,0.007440557223363665
+baselines.Siamese Network.episode_accs.n,600
+baselines.Siamese Network.episode_accs.mean,0.8818333749721448
+baselines.Siamese Network.per_fruit.orange,0.810596076216524
+baselines.Siamese Network.per_fruit.mango,0.9540268790801899
+baselines.Matching Network.mean,0.9296667046348254
+baselines.Matching Network.std,0.05871844626065631
+baselines.Matching Network.ci_95,0.004707880510993058
+baselines.Matching Network.episode_accs.n,600
+baselines.Matching Network.episode_accs.mean,0.9296667046348254
+baselines.Matching Network.per_fruit.mango,0.9659212204975823
+baselines.Matching Network.per_fruit.orange,0.8901278075440835
+baselines.ProtoNet (standard).mean,0.946222257912159
+baselines.ProtoNet (standard).std,0.04358904410833974
+baselines.ProtoNet (standard).ci_95,0.003494847434135355
+baselines.ProtoNet (standard).episode_accs.n,600
+baselines.ProtoNet (standard).episode_accs.mean,0.946222257912159
+baselines.ProtoNet (standard).per_fruit.orange,0.9335519530734078
+baselines.ProtoNet (standard).per_fruit.mango,0.9593220646098509
+baselines.ProtoNet + Temp. Scaling.mean,0.9454444807767868
+baselines.ProtoNet + Temp. Scaling.std,0.043599682268749225
+baselines.ProtoNet + Temp. Scaling.ci_95,0.003495700372032286
+baselines.ProtoNet + Temp. Scaling.episode_accs.n,600
+baselines.ProtoNet + Temp. Scaling.episode_accs.mean,0.9454444807767868
+baselines.ProtoNet + Temp. Scaling.per_fruit.mango,0.9600229404636265
+baselines.ProtoNet + Temp. Scaling.per_fruit.orange,0.9317152517513164
+baselines.Ours (Full Model).mean,0.8863889383276303
+baselines.Ours (Full Model).std,0.05734751031508181
+baselines.Ours (Full Model).ci_95,0.004597962707798143
+baselines.Ours (Full Model).episode_accs.n,600
+baselines.Ours (Full Model).episode_accs.mean,0.8863889383276303
+baselines.Ours (Full Model).per_fruit.orange,0.8964169866099031
+baselines.Ours (Full Model).per_fruit.mango,0.875881734154737
+baselines.Fine-tuned + Nearest Centroid.mean,0.9378333727518717
+baselines.Fine-tuned + Nearest Centroid.std,0.04630803276867909
+baselines.Fine-tuned + Nearest Centroid.ci_95,0.003712848327190315
+baselines.Fine-tuned + Nearest Centroid.episode_accs.n,600
+baselines.Fine-tuned + Nearest Centroid.episode_accs.mean,0.9378333727518717
+baselines.Fine-tuned + Nearest Centroid.per_fruit.orange,0.9206621442755608
+baselines.Fine-tuned + Nearest Centroid.per_fruit.mango,0.9541125893592834
+baselines.Supervised transfer (zero-shot).mean,0.8620556010802587
+baselines.Supervised transfer (zero-shot).std,0.08297382927999308
+baselines.Supervised transfer (zero-shot).ci_95,0.006652609165707485
+baselines.Supervised transfer (zero-shot).episode_accs.n,600
+baselines.Supervised transfer (zero-shot).episode_accs.mean,0.8620556010802587
+baselines.Supervised transfer (zero-shot).per_fruit.orange,0.7963470783952165
+baselines.Supervised transfer (zero-shot).per_fruit.mango,0.9243506940154286
+component_ablation.Full Model.mean,0.8826667163769404
+component_ablation.Full Model.std,0.05841789353253803
+component_ablation.Full Model.ci_95,0.004683783035304538
+component_ablation.Full Model.per_fruit.mango,0.875919783593819
+component_ablation.Full Model.per_fruit.orange,0.8893688190419017
+component_ablation.- Contrastive Loss.mean,0.8810000480214755
+component_ablation.- Contrastive Loss.std,0.062160743405749674
+component_ablation.- Contrastive Loss.ci_95,0.004983874251878036
+component_ablation.- Contrastive Loss.per_fruit.orange,0.9034330474577869
+component_ablation.- Contrastive Loss.per_fruit.mango,0.8584169950772289
+component_ablation.- Temperature Scaling.mean,0.8870000488559405
+component_ablation.- Temperature Scaling.std,0.05928435607094826
+component_ablation.- Temperature Scaling.ci_95,0.004753253574085131
+component_ablation.- Temperature Scaling.per_fruit.mango,0.909460992112805
+component_ablation.- Temperature Scaling.per_fruit.orange,0.8640853491696444
+component_ablation.- Frozen Layers.mean,0.9139444913466771
+component_ablation.- Frozen Layers.std,0.048650837114260694
+component_ablation.- Frozen Layers.ci_95,0.003900687815835364
+component_ablation.- Frozen Layers.per_fruit.mango,0.9173817837198969
+component_ablation.- Frozen Layers.per_fruit.orange,0.9104377587234934
+component_ablation.- Dropout.mean,0.8861667147278786
+component_ablation.- Dropout.std,0.059455027783490544
+component_ablation.- Dropout.ci_95,0.004766937553829568
+component_ablation.- Dropout.per_fruit.mango,0.9104794227957327
+component_ablation.- Dropout.per_fruit.orange,0.8620155528930334
+nshot_ablation.1.mean,0.8559630114874905
+nshot_ablation.1.std,0.009558999962194718
+nshot_ablation.1.ci_95,0.02374587229270788
+nshot_ablation.3.mean,0.8774444931083255
+nshot_ablation.3.std,0.005225768082650249
+nshot_ablation.3.ci_95,0.0129815275669727
+nshot_ablation.5.mean,0.8793704201115502
+nshot_ablation.5.std,0.002708772415947618
+nshot_ablation.5.ci_95,0.006728963711004529
+nshot_ablation.10.mean,0.8820741240845787
+nshot_ablation.10.std,0.0028226017786986165
+nshot_ablation.10.ci_95,0.007011731523718793
+backbone_ablation.resnet18.mean,0.8821667141715686
+backbone_ablation.resnet18.std,0.06325823273941492
+backbone_ablation.resnet18.ci_95,0.005071867871839457
+backbone_ablation.resnet18.per_fruit.orange,0.9088392371948535
+backbone_ablation.resnet18.per_fruit.mango,0.8530778650207387
+backbone_ablation.resnet18.trainable_params,11414017
+backbone_ablation.resnet18.total_params,11571521
+backbone_ablation.resnet18.episode_accs.n,600
+backbone_ablation.resnet18.episode_accs.mean,0.8821667141715686
+backbone_ablation.resnet50.mean,0.9372778182228406
+backbone_ablation.resnet50.std,0.04277946901169829
+backbone_ablation.resnet50.ci_95,0.0034299379710554813
+backbone_ablation.resnet50.per_fruit.orange,0.9437972339997399
+backbone_ablation.resnet50.per_fruit.mango,0.9303551396143805
+backbone_ablation.resnet50.trainable_params,24464129
+backbone_ablation.resnet50.total_params,24689473
+backbone_ablation.resnet50.episode_accs.n,600
+backbone_ablation.resnet50.episode_accs.mean,0.9372778182228406
+backbone_ablation.efficientnet_b0.mean,0.8617222727338473
+backbone_ablation.efficientnet_b0.std,0.06565450702529059
+backbone_ablation.efficientnet_b0.ci_95,0.005263994430491723
+backbone_ablation.efficientnet_b0.per_fruit.mango,0.832998936590941
+backbone_ablation.efficientnet_b0.per_fruit.orange,0.890254756144907
+backbone_ablation.efficientnet_b0.trainable_params,4793397
+backbone_ablation.efficientnet_b0.total_params,4795773
+backbone_ablation.efficientnet_b0.episode_accs.n,600
+backbone_ablation.efficientnet_b0.episode_accs.mean,0.8617222727338473
+single_species.Apple-trained.mean,0.9082778249929349
+single_species.Apple-trained.std,0.06270945780796348
+single_species.Apple-trained.ci_95,0.005027868635326402
+single_species.Apple-trained.per_fruit.orange,0.9005612152493763
+single_species.Apple-trained.per_fruit.mango,0.9158416305831557
+single_species.Banana-trained.mean,0.9292222635944685
+single_species.Banana-trained.std,0.053392992827940515
+single_species.Banana-trained.ci_95,0.004280900574964289
+single_species.Banana-trained.per_fruit.mango,0.9537459629366375
+single_species.Banana-trained.per_fruit.orange,0.9035267833963596
+single_species.Grape-trained.mean,0.6928333739439646
+single_species.Grape-trained.std,0.17628488982388535
+single_species.Grape-trained.ci_95,0.014134028572559713
+single_species.Grape-trained.per_fruit.mango,0.553118311589764
+single_species.Grape-trained.per_fruit.orange,0.8421839578398342
+single_species.Multi-species (Ours).mean,0.8832222713033359
+single_species.Multi-species (Ours).std,0.058738248540803985
+single_species.Multi-species (Ours).ci_95,0.0047094682023356834
+single_species.Multi-species (Ours).per_fruit.orange,0.8958199840649914
+single_species.Multi-species (Ours).per_fruit.mango,0.8696655631065369
