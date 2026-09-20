@@ -1,199 +1,112 @@
 # Results — Cross-Species Fruit Quality Grading
 
-Source: `src/`, driven by [`scripts/reproduce_thesis.py`](scripts/reproduce_thesis.py).
-Open defects: [REVIEW_FINDINGS.md](REVIEW_FINDINGS.md).
+Produced by [`scripts/reproduce_thesis.py`](scripts/reproduce_thesis.py) over **3 seeds** (42, 1337, 2024), regenerated from `results/run_*/metrics.json` by `scripts/make_results_md.py`.
 
-> ## ⚠ These numbers are pending regeneration
->
-> They were produced before three corrections landed and **will move**:
->
-> 1. **Layer freezing was over-broad.** A substring match froze the first
->    convolution and its norm in *every* residual block, not just the stem and
->    `layer1` — 4,648,448 parameters (40.7%) frozen beyond what the method
->    describes. Every number below comes from that over-frozen model.
-> 2. **Significance was tested one-sided**, so baselines that beat the proposed
->    method were reported as "not significant" rather than "significantly better".
-> 3. **Episode sampling used the global RNG**, so results depended on notebook
->    cell execution order — which is why the same model appears below at 85.0,
->    85.4, 85.6 and 85.7.
->
-> The artifacts that produced them — `results/*.json`, `Imgs/*.png`,
-> `notebooks/checkpoints/best_model.pth` — have been **deleted** ahead of a clean
-> re-run, and the notebook's injected outputs stripped. The numbers below are
-> retained only so the re-run can be compared against them. Recover the old
-> artifacts if ever needed with:
-> `git checkout c1d4301 -- results Imgs notebooks`
->
-> Regenerate with `python scripts/reproduce_thesis.py --seed 42` on the GPU
-> machine, then replace this file wholesale. Do not cite these figures in the
-> thesis until then.
+Dataset: **6,978 images**, manifest `sha256:8354959198214354…`. Trainable parameters: **11,414,017** of 11,571,521.
+
+> **Read the interval carefully.** Across seeds the standard deviation of the headline is **0.94 points**, while the episode-level 95% interval within a single run is **±0.21**. Training variance dominates episode sampling by roughly 4×, so quote the cross-seed figure and treat any single-run ranking of methods as unreliable.
 
 ---
 
-## Headline: cross-species generalization (unseen species)
+## Headline: accuracy on unseen species
 
-Trained on **apple, banana, grape** → tested on **mango, orange**, no fine-tuning.
+Trained on apple/banana/grape, evaluated on mango/orange with no retraining.
 
-| | Accuracy | 95% CI |
+| | Accuracy | Spread |
 |---|---|---|
-| **Overall (unseen)** | **85.4%** | ±0.4% ⚠ |
-| Mango | 80.8% | ±0.4% ⚠ |
-| Orange | 90.1% | ±0.3% ⚠ |
+| **Overall, mean of 3 seeds** | **89.21%** | sd 0.94 (88.18 / 90.01 / 89.45) |
+| Mango | 89.44% | sd 2.57 |
+| Orange | 89.03% | sd 2.32 |
 
-> ⚠ **These intervals are not comparable with any other table on this page.**
-> They are t-intervals over **5 trial means**; every other `±` here is over
-> **600 episodes**. Averaging 600 episodes before taking the interval removes
-> almost all the variance, making these the narrowest numbers in the document by
-> construction. `test_on_unseen_fruits` now returns both `ci_95_episode` and
-> `ci_95_trial` with explicit `n`; quote the **episode-level** one.
-
-Chance is 50% (balanced binary task). Note that within-species fresh/rotten
-classification is a solved problem at 94–98% in the literature — those figures
-are **not comparable**, because they train and test on the same species.
-
-## Baselines (unseen species, 600 episodes)
-
-| Method | Accuracy | 95% CI | vs Ours |
-|---|---|---|---|
-| Nearest Centroid (raw pixels) | 69.6% | ±0.8 | ours better, p ≈ 2e-117 |
-| ProtoNet (standard) | 76.1% | ±0.9 | ours better, p ≈ 5e-49 |
-| ProtoNet + Temp. Scaling | 83.4% | ±1.1 | ours better, p ≈ 1e-03 |
-| Ours (Full Model) | 85.6% | ±0.7 | — |
-| **Siamese Network** | **88.0%** | ±0.5 | **ours WORSE**, t = −5.51, p ≈ 5e-08 |
-| **Matching Network** | **88.2%** | ±0.8 | **ours WORSE**, t = −4.97, p ≈ 9e-07 |
-
-**The proposed method does not win.** Siamese and Matching Networks beat it, and
-the paired t-tests say the gap is significant. An earlier version of this table
-reported those two rows as "not significant" because the Wilcoxon test was run
-one-sided (`alternative="greater"`), which can only detect *ours better* and
-returns p = 1.00 otherwise. That is fixed.
-
-This is consistent with the thesis's stated conclusion: cross-species quality
-transfer is a property of episodic metric learning on a pretrained backbone, not
-of the specific refinements collected under "ProtoNet++". It also matches the
-cross-domain few-shot literature (Chen et al. 2019; Tian et al. 2020), where
-elaborate meta-learners routinely fail to beat simple ones under domain shift.
-
-Caveat that cuts the other way: baselines were trained on a **worse budget**
-(20 epochs, single LR, no freezing vs 30 epochs, discriminative LRs, frozen
-layers — `src/experiments.py:136-139`). They were handicapped and still won.
+**Lead with the cross-validated mean below, not this number.** The fixed apple/banana/grape split is the most favourable of the ten possible species splits at every seed.
 
 ## Species-split cross-validation — C(5,3) = 10 folds
 
-| # | Train | Test (unseen) | Accuracy |
-|---|---|---|---|
-| 1 | apple, banana, grape | mango, orange | 85.3% ± 0.6% |
-| 2 | apple, banana, mango | grape, orange | 76.3% ± 0.9% |
-| 3 | apple, banana, orange | grape, mango | 79.7% ± 0.7% |
-| 4 | apple, grape, mango | banana, orange | 87.2% ± 0.6% |
-| 5 | apple, grape, orange | banana, mango | 75.7% ± 0.7% |
-| 6 | apple, mango, orange | banana, grape | 82.6% ± 0.8% |
-| 7 | banana, grape, mango | apple, orange | 77.9% ± 1.2% |
-| 8 | banana, grape, orange | apple, mango | 79.5% ± 0.7% |
-| 9 | banana, mango, orange | apple, grape | 74.3% ± 0.8% |
-| 10 | grape, mango, orange | apple, banana | 80.6% ± 0.8% |
-| | | **Mean ± std** | **79.9% ± 4.0%** |
-
-**This is the most defensible result in the project and should lead the results
-chapter.** Every fold clears chance by a wide margin, which answers the "you
-picked an easy split" objection with evidence.
-
-Note that the headline split (fold 1, 85.3%) is the **2nd best of 10**. Quoting
-it as *the* result overstates the method; quoting the CV mean does not.
-
-## Component ablation
-
-| Variant | Accuracy | 95% CI | Δ vs Full |
-|---|---|---|---|
-| Full Model | 85.7% | ±0.7 | — |
-| − Contrastive Loss | 86.5% | ±0.6 | **+0.7** |
-| − Temperature Scaling | 80.5% | ±0.6 | −5.3 |
-| − Frozen Layers | 84.0% | ±0.9 | −1.7 |
-| − Dropout | **89.1%** | ±0.5 | **+3.4** |
-
-Temperature scaling is the only component that clearly earns its place.
-**Removing dropout gains 3.4 points and removing the contrastive loss gains 0.7**
-— two of the four components of the "full model" hurt, and the best
-configuration in this table is not the one being proposed.
-
-The `− Frozen Layers` row must be re-run and reinterpreted: under the old
-substring freezing it compared *no freezing* against *40.7% of the backbone
-frozen*, not against the stem-and-`layer1` freezing the method describes.
-
-## N-shot ablation (unseen species)
-
-| K (shots) | Accuracy | 95% CI |
+| Train | Test (unseen) | Accuracy, mean of 3 seeds |
 |---|---|---|
-| 1 | 83.5% | ±0.7 |
-| 3 | 85.4% | ±1.4 |
-| 5 | 85.6% | ±0.7 |
-| 10 | 85.7% | ±0.4 |
+| apple, banana, grape | mango, orange | 91.96% |
+| apple, grape, mango | banana, orange | 85.59% |
+| apple, banana, orange | grape, mango | 83.61% |
+| apple, grape, orange | banana, mango | 82.12% |
+| apple, mango, orange | banana, grape | 80.12% |
+| banana, grape, mango | apple, orange | 78.64% |
+| apple, banana, mango | grape, orange | 78.26% |
+| banana, grape, orange | apple, mango | 77.79% |
+| banana, mango, orange | apple, grape | 72.98% |
+| grape, mango, orange | apple, banana | 72.56% |
+| | **Mean over 10 folds** | **80.36%** (sd across folds 5.82) |
 
-**+2.2 points for 10× the support data.** Worth stating directly: the practical
-claim ("ten labelled photographs and no retraining") is well supported, because
-performance is nearly flat in K — most of the capability comes from the
-pretrained backbone and episodic training, not from the support examples.
+The apple/banana/grape → mango/orange split ranks **1 of 10** and scores 91.96%, against a 10-fold mean of 80.36%. Reporting only the fixed split overstates cross-species transfer by roughly 12 points.
+
+## Baselines and transfer controls (two-sided paired tests)
+
+| Method | Accuracy (mean of 3) | sd | Verdict vs ours |
+|---|---|---|---|
+| **Fine-tuned + Nearest Centroid** *(control)* | 94.34% | 0.49 | **ours WORSE** at all 3 seeds |
+| **Matching Network** | 93.13% | 0.99 | **ours WORSE** at all 3 seeds |
+| ProtoNet + Temp. Scaling | 91.61% | 2.68 | inconsistent (ours WORSE / ours WORSE / ns) |
+| Siamese Network | 90.76% | 2.24 | inconsistent (ns / ours WORSE / ours WORSE) |
+| Ours (Full Model) | 89.26% | 0.57 | — |
+| Supervised transfer (zero-shot) *(control)* | 88.63% | 2.14 | inconsistent (ours better / ns / ns) |
+| ProtoNet (standard) | 86.87% | 12.78 | inconsistent (ours WORSE / ours better / ours WORSE) |
+| Nearest Centroid (pixels) | 69.23% | 0.48 | **ours better** at all 3 seeds |
+
+**Baselines that beat this method.** *Fine-tuned + Nearest Centroid* — ordinary supervised fine-tuning with a nearest-centroid head and no episodic training — and the *Matching Network* outperform the proposed model at **every seed**, with two-sided Wilcoxon p-values below 1e-28 in every case. This is reported rather than omitted, and it is the expected outcome under the cross-domain few-shot literature (Chen et al. 2019, Baseline++; Wang et al. 2019, SimpleShot; Tian et al. 2020), where a good embedding with a simple classifier rivals meta-learning under domain shift.
+
+*Supervised transfer (zero-shot)* is the control that asks whether few-shot adaptation is needed at all. It is **not reliably beaten**: the method leads at one seed and is statistically indistinguishable at the others.
+
+*ProtoNet (standard)* is unstable across seeds and should not be quoted from a single run in either direction.
+
+## Component ablation — inconclusive
+
+| Variant | Δ vs Full Model, per seed (42, 1337, 2024) | Consistent? |
+|---|---|---|
+| - Contrastive Loss | -0.17 / +0.57 / -0.29 | **no** |
+| - Temperature Scaling | +0.43 / -2.15 / -5.00 | **no** |
+| - Frozen Layers | +3.13 / +3.22 / -2.59 | **no** |
+| - Dropout | +0.35 / +1.51 / -2.12 | **no** |
+
+**No component shows a consistent effect across seeds**, including frozen layers, which looked like a real gain at two seeds before reversing at the third. Report this ablation as inconclusive at this sample size rather than as evidence for or against any component.
 
 ## Backbone ablation
 
-Present in the notebook, previously omitted from this file.
+| Backbone | Accuracy (mean of 3) | sd |
+|---|---|---|
+| resnet50 | 94.79% | 0.92 |
+| resnet18 | 89.16% | 0.85 |
+| efficientnet_b0 | 86.37% | 2.86 |
 
-| Backbone | Accuracy | 95% CI | Params |
+## Single-species baselines
+
+| Trained on | Accuracy (mean of 3) | sd |
+|---|---|---|
+| Banana-trained | 91.96% | 1.56 |
+| Apple-trained | 90.17% | 1.20 |
+| Multi-species (Ours) | 89.09% | 0.72 |
+| Grape-trained | 71.45% | 1.93 |
+
+Both EfficientNet-B0 and the banana-only baseline are reported above rather than omitted. Changing the backbone to ResNet-50 buys more accuracy than the method contributes, and single-species training on banana or apple beats multi-species training.
+
+## N-shot ablation
+
+| K (shots) | Accuracy (mean of 3) | sd |
+|---|---|---|
+| 1 | 86.80% | 1.65 |
+| 3 | 88.87% | 1.15 |
+| 5 | 89.12% | 1.05 |
+| 10 | 89.13% | 0.94 |
+
+## Variant configurations (one seed each)
+
+| Configuration | Validation set | Best val acc | Unseen-species test |
 |---|---|---|---|
-| ResNet-18 (used) | 85.7% | ±0.6 | 6.8M |
-| ResNet-50 | 86.8% | ±0.8 | 20.2M |
-| **EfficientNet-B0** | **92.3%** | ±0.4 | **4.8M** |
+| baseline (mean of 3) | held-out images, 3 species | 0.9306 | 89.21% |
+| bnfrozen | held-out images, 3 species | 0.9890 | 85.65% |
+| loso | grape episodes | 0.7603 | 87.44% |
+| loso+bnfrozen | grape episodes | 0.7502 | 92.13% |
 
-**EfficientNet-B0 is both smaller and 6.6 points better than the backbone the
-thesis uses.** This must appear in the thesis. The defensible position is that
-the research question concerns whether episodic metric learning transfers
-quality concepts across species, not which backbone maximises accuracy — and
-that ResNet-18 was fixed in advance for comparability. State it; do not omit it.
+**No variant was shown to be better.** Two cautions belong with this table. First, configurations can only be ranked against each other when they share a validation set, so the LOSO rows and the seen-holdout rows are not comparable. Second, among the two LOSO rows the higher unseen-species score belongs to the configuration with the *lower* LOSO validation accuracy — selecting it would mean choosing on the held-out test species, which is exactly what the evaluation protocol exists to prevent. With one seed each and a validation gap far smaller than the seed-to-seed spread, the pre-registered baseline stands.
 
-## Single-species training baselines
+---
 
-Present in the notebook, previously omitted from this file.
-
-| Training set | Accuracy on unseen |
-|---|---|
-| Apple only | 87.6% |
-| **Banana only** | **90.9%** |
-| Grape only | 78.1% |
-| Multi-species (apple+banana+grape) | 85.0% |
-
-**Training on banana alone beats multi-species training by 5.9 points.** This
-undercuts the assumption that species diversity in training drives transfer, and
-it is a finding worth discussing rather than an embarrassment: it suggests what
-transfers is a *spoilage appearance prior*, which some species teach better than
-others, rather than a diversity-induced invariance.
-
-## Other reported quantities
-
-- Best validation accuracy 0.943 at epoch 15; early stop at epoch 22.
-- Learned temperature ≈ 0.507.
-- Embedding space: silhouette 0.480, 5-NN purity 0.965.
-- Classification report (unseen): Fresh P/R/F1 = 0.90/0.79/0.84;
-  Rotten = 0.81/0.91/0.86; accuracy 0.85.
-- **Mango fresh recall is 0.645** — the model rejects over a third of acceptable
-  mangoes. Raise this before an examiner does; per-species threshold calibration
-  is the mitigation.
-
-## Known gaps
-
-- **Single seed (42) throughout.** No `±` here reflects training variance. Run
-  `--seed 42 1337 2024` then `--aggregate` for seed-level spread.
-- **No fine-tuning control.** Fine-tune on the seen species, then
-  nearest-centroid on the support set. The CD-FSL literature suggests it may beat
-  everything in this document; it is the most exposed omission.
-- **Figure/text divergence.** `Imgs/confusion_matrices.png` totals 86.2% while
-  the classification report from the same cell says 85% — different runs. Both
-  now come from one call to `plot_confusion_matrices`.
-
-## Files
-
-- [`scripts/reproduce_thesis.py`](scripts/reproduce_thesis.py) — the sole producer of these numbers
-- `results/run_<ts>_seed<N>/{metrics.json,env.json,summary.csv,figures/}`
-- `notebooks/main_experiment.ipynb` — outputs were injected, not executed
-  (duplicate `execution_count` values); superseded by the driver script
-- `notebooks/checkpoints/best_model.pth` — trained under `legacy_substring`
-  freezing; load with `PrototypicalNetwork(freeze_mode="legacy_substring")`
+Every number above is a key in a `results/run_*/metrics.json`; `summary.csv` in each run directory is the flat index.
